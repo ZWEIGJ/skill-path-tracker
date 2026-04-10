@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>用户注册 - 技能路径规划系统</title>
+</head>
+<body>
+    <h2>加入学习路径规划 [cite: 102]</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">立即注册</button>
+    </form>
+</body>
+</html>
