@@ -15,9 +15,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
-from users.views import register_view  # 导入刚才写的视图
-from django.contrib.auth import views as auth_views # 引入内置认证视图
+from django.urls import path
+from django.contrib.auth import views as auth_views
+from users.views import register_view
+# 导入 goals 的视图
 from goals.views import (
     dashboard_view, 
     goal_toggle_view, 
@@ -30,12 +31,10 @@ urlpatterns = [
     path('register/', register_view, name='register'),
     path('login/', auth_views.LoginView.as_view(template_name='users/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-    
-    # Goals 模块
+
+    # 目标管理
     path('', dashboard_view, name='dashboard'),
     path('add/', GoalCreateView.as_view(), name='goal_add'),
     path('delete/<int:pk>/', GoalDeleteView.as_view(), name='goal_delete'),
-    
-    # 这里是之前的报错重灾区：确保函数名是 goal_toggle_view
     path('toggle/<int:pk>/', goal_toggle_view, name='goal_toggle'),
 ]

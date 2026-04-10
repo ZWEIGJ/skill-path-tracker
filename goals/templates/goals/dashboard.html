@@ -304,6 +304,50 @@
                 });
             });
         });
+        // 处理异步删除
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault(); // 阻止 <a> 标签的默认跳转
+                if (!confirm('确定要删除吗？')) return;
+
+                const url = this.href;
+                const goalItem = this.closest('.goal-item'); // 找到这一行 HTML 元素
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // 1. 增加一个淡出效果，然后移除元素
+                        goalItem.style.transition = 'all 0.3s ease';
+                        goalItem.style.opacity = '0';
+                        goalItem.style.transform = 'translateX(20px)';
+                        
+                        setTimeout(() => {
+                            goalItem.remove();
+                            // 如果列表空了，刷新页面显示空状态提示，或者手动插入空状态 HTML
+                            if (document.querySelectorAll('.goal-item').length === 0) {
+                                location.reload();
+                            }
+                        }, 300);
+
+                        // 2. 更新进度条数字和长度
+                        const progressBar = document.getElementById('progress-fill-element');
+                        const progressPercentText = document.querySelector('.progress-percent');
+                        const progressStatsText = document.querySelector('.progress-stats');
+                        
+                        progressBar.style.width = data.progress_percentage + '%';
+                        progressPercentText.innerText = data.progress_percentage + '%';
+                        progressStatsText.innerText = `已完成 ${data.completed_count} / ${data.total_count}`;
+                    }
+                });
+            });
+        });
     </script>
 
 </body>
