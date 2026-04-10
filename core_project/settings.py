@@ -75,11 +75,14 @@ WSGI_APPLICATION = 'core_project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'skill_path_db',        # 刚才创建的数据库名
+        'USER': 'root',                 # 默认用户名
+        'PASSWORD': r'753.ijn951A?',      # 刚才安装时设置的密码
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
