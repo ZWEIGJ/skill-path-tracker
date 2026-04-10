@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'users',  # 新增
+    'goals', # 刚才创建的 App
 ]
 
 MIDDLEWARE = [

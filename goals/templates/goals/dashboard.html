@@ -1,0 +1,12 @@
+<h2>欢迎回来, {{ user.username }}!</h2>
+<p>你的当前技能等级: {{ user.get_skill_level_display }}</p>
+
+<h3>你的学习目标:</h3>
+<ul>
+    {% for goal in goals %}
+        <li>{{ goal.title }}</li>
+    {% empty %}
+        <li>还没有目标？快去添加一个吧！</li>
+    {% endfor %}
+</ul>
+<a href="{% url 'logout' %}">安全退出</a>
