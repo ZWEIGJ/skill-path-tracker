@@ -2,38 +2,115 @@
 <html lang="zh-hans">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>设定新目标 - SkillPath</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --notion-bg: #ffffff;
+            --notion-text: #37352f;
+            --notion-border: #edece9;
+            --notion-focus: #5297ff;
+        }
+
+        body {
+            background-color: var(--notion-bg);
+            color: var(--notion-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .form-container {
+            max-width: 500px;
+            width: 90%;
+            padding: 40px;
+            border: 1px solid var(--notion-border);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            font-weight: 700;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #787774;
+        }
+
+        .form-control {
+            border: 1px solid var(--notion-border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--notion-focus);
+            box-shadow: 0 0 0 3px rgba(82, 151, 255, 0.1);
+            outline: none;
+        }
+
+        .btn-save {
+            background-color: var(--notion-text);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            width: 100%;
+            transition: opacity 0.2s;
+        }
+
+        .btn-save:hover {
+            opacity: 0.8;
+            color: white;
+        }
+
+        .btn-back {
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+            color: #acaba9;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .btn-back:hover {
+            color: var(--notion-text);
+        }
+    </style>
 </head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card shadow">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">🎯 设定你的下一个里程碑</h5>
-                    </div>
-                    <div class="card-body">
-                        <form method="post">
-                            {% csrf_token %}
-                            <div class="mb-3">
-                                <label class="form-label">学习目标名称</label>
-                                <input type="text" name="title" class="form-control" placeholder="例如：掌握 Django 核心模型" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">目标详情描述</label>
-                                <textarea name="description" class="form-control" rows="4" placeholder="可选：描述你的学习计划..."></textarea>
-                            </div>
-                            
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-success">确认保存</button>
-                                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">取消返回</a>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+<body>
+
+    <div class="form-container">
+        <h2>🎯 开启新征程</h2>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="id_title" class="form-label">大目标名称</label>
+                <input type="text" name="title" id="id_title" class="form-control" placeholder="例如：掌握 Django 开发" required>
             </div>
-        </div>
+
+            <div class="mb-3">
+                <label for="id_description" class="form-label">目标描述（可选）</label>
+                <textarea name="description" id="id_description" class="form-control" rows="4" placeholder="写下这个目标的背景或最终期望的状态..."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-save">保存并开始拆解</button>
+            <a href="{% url 'goal_list' %}" class="btn-back">返回列表</a>
+        </form>
     </div>
+
 </body>
 </html>

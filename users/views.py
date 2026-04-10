@@ -10,7 +10,7 @@ def register_view(request):
             user = form.save()
             login(request, user)
             messages.success(request, f"欢迎加入，{user.username}！账号已创建并自动登录。")
-            return redirect('dashboard')
+            return redirect('goal_list')
     else:
         form = CustomUserCreationForm()
     return render(request, 'users/register.html', {'form': form})

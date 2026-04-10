@@ -121,8 +121,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 AUTH_USER_MODEL = 'users.CustomUser'
-# 登录成功后，不要去 profile，直接去我们的 dashboard (看板)
-LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'goal_list'  
 
 # 登出成功后，跳转回登录页面
 LOGOUT_REDIRECT_URL = 'login'

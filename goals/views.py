@@ -4,87 +4,90 @@ from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
-from .models import LearningGoal
+from .models import LearningGoal, SubTask # 确保导入了 SubTask
 
-# --- 工具函数：统一计算进度 ---
-def get_user_progress(user):
-    goals = LearningGoal.objects.filter(user=user)
-    total = goals.count()
-    completed = goals.filter(is_completed=True).count()
-    progress = int((completed / total) * 100) if total > 0 else 0
-    return progress, total, completed
+# --- 1. 大目标管理 (页面级) ---
 
-# 1. 看板视图
 @login_required
-def dashboard_view(request):
+def goal_list_view(request):
+    """首页：显示所有大目标的卡片"""
     goals = LearningGoal.objects.filter(user=request.user)
-    progress, total, completed = get_user_progress(request.user)
-    
-    return render(request, 'goals/dashboard.html', {
+    return render(request, 'goals/goal_list.html', {
         'goals': goals,
-        'total_goals': total,
-        'completed_goals': completed,
-        'progress_percentage': progress,
     })
 
-# 2. 状态切换视图 (AJAX + Regular)
 @login_required
-def goal_toggle_view(request, pk):
+def goal_detail_view(request, pk):
+    """详情页：大目标的详情 + Notion 风格的子任务列表"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
-    goal.is_completed = not goal.is_completed
-    goal.save()
+    subtasks = goal.subtasks.all().order_by('created_at')
+    
+    # 这里的进度计算已经在 model 的 property 中实现了
+    return render(request, 'goals/goal_detail.html', {
+        'goal': goal,
+        'subtasks': subtasks,
+        'progress_percentage': goal.progress 
+    })
 
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        progress, total, completed = get_user_progress(request.user)
-        return JsonResponse({
-            'status': 'success',
-            'is_completed': goal.is_completed,
-            'progress_percentage': progress,
-            'completed_count': completed,
-            'total_count': total
-        })
-    return redirect('dashboard')
-
-# 3. 创建视图 (修正了 fields 缺失和逻辑错误)
 class GoalCreateView(LoginRequiredMixin, CreateView):
+    """创建大目标的独立页面"""
     model = LearningGoal
-    fields = ['title']  # 必须显式声明，解决 ImproperlyConfigured 报错
+    fields = ['title', 'description'] # 大目标通常需要描述
     template_name = 'goals/goal_form.html'
-    success_url = reverse_lazy('dashboard')
+    success_url = reverse_lazy('goal_list')
 
     def form_valid(self, form):
         form.instance.user = self.request.user
-        # 如果是 AJAX 请求
-        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            self.object = form.save()
-            progress, total, completed = get_user_progress(self.request.user)
-            return JsonResponse({
-                'status': 'success',
-                'goal_id': self.object.pk,
-                'goal_title': self.object.title,
-                'progress_percentage': progress,
-                'completed_count': completed,
-                'total_count': total
-            })
         return super().form_valid(form)
 
-# 4. 删除视图
 class GoalDeleteView(LoginRequiredMixin, DeleteView):
+    """删除整个大目标"""
     model = LearningGoal
-    success_url = reverse_lazy('dashboard')
-
-    def post(self, request, *args, **kwargs):
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            self.object = self.get_object()
-            self.object.delete()
-            progress, total, completed = get_user_progress(request.user)
-            return JsonResponse({
-                'status': 'success',
-                'progress_percentage': progress,
-                'completed_count': completed,
-                'total_count': total
-            })
-        return super().post(request, *args, **kwargs)
+    success_url = reverse_lazy('goal_list')
 
     def get_queryset(self):
         return self.model.objects.filter(user=self.request.user)
+
+
+# --- 2. 子任务管理 (AJAX 纯异步接口) ---
+
+@login_required
+def subtask_add_ajax(request, goal_id):
+    """异步添加工作点"""
+    if request.method == 'POST':
+        goal = get_object_or_404(LearningGoal, pk=goal_id, user=request.user)
+        title = request.POST.get('title', '').strip()
+        if title:
+            subtask = SubTask.objects.create(goal=goal, title=title)
+            return JsonResponse({
+                'status': 'success',
+                'task_id': subtask.id,
+                'task_title': subtask.title,
+                'progress_percentage': goal.progress
+            })
+    return JsonResponse({'status': 'error'}, status=400)
+
+@login_required
+def subtask_toggle_ajax(request, pk):
+    """异步切换工作点完成状态"""
+    subtask = get_object_or_404(SubTask, pk=pk, goal__user=request.user)
+    subtask.is_completed = not subtask.is_completed
+    subtask.save()
+    
+    return JsonResponse({
+        'status': 'success',
+        'is_completed': subtask.is_completed,
+        'progress_percentage': subtask.goal.progress
+    })
+
+@login_required
+def subtask_delete_ajax(request, pk):
+    """异步删除工作点"""
+    subtask = get_object_or_404(SubTask, pk=pk, goal__user=request.user)
+    goal = subtask.goal
+    subtask.delete()
+    
+    return JsonResponse({
+        'status': 'success',
+        'progress_percentage': goal.progress
+    })

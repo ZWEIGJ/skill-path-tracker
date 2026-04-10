@@ -1,30 +1,9 @@
-"""
-URL configuration for core_project project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from users.views import register_view
-# 导入 goals 的视图
-from goals.views import (
-    dashboard_view, 
-    goal_toggle_view, 
-    GoalCreateView, 
-    GoalDeleteView
-)
+# 统一导入 goals 应用的 views 模块
+from goals import views 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -32,9 +11,15 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='users/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 
-    # 目标管理
-    path('', dashboard_view, name='dashboard'),
-    path('add/', GoalCreateView.as_view(), name='goal_add'),
-    path('delete/<int:pk>/', GoalDeleteView.as_view(), name='goal_delete'),
-    path('toggle/<int:pk>/', goal_toggle_view, name='goal_toggle'),
+    # --- 目标管理 (Step 4 架构) ---
+    
+    # 1. 大目标（页面级操作）
+    path('', views.goal_list_view, name='goal_list'),             # 首页：大目标卡片流
+    path('goal/add/', views.GoalCreateView.as_view(), name='goal_add'),  # 新放大目标（独立页）
+    path('goal/<int:pk>/', views.goal_detail_view, name='goal_detail'), # 详情页：拆分任务的舞台
+    
+    # 2. 子任务（AJAX 纯异步接口）
+    path('subtask/add/<int:goal_id>/', views.subtask_add_ajax, name='subtask_add'),
+    path('subtask/toggle/<int:pk>/', views.subtask_toggle_ajax, name='subtask_toggle'),
+    path('subtask/delete/<int:pk>/', views.subtask_delete_ajax, name='subtask_delete'),
 ]

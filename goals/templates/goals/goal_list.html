@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的目标库 - SkillPath</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --notion-bg: #ffffff;
+            --notion-text: #37352f;
+            --notion-hover: #f1f1ef;
+            --notion-border: #edece9;
+            --notion-blue: #5297ff;
+        }
+
+        body {
+            background-color: var(--notion-bg);
+            color: var(--notion-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            padding-top: 80px;
+        }
+
+        .notion-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 40px;
+        }
+
+        .header-section { margin-bottom: 40px; }
+
+        .goal-card {
+            border: 1px solid var(--notion-border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+        }
+
+        .goal-card:hover {
+            background-color: var(--notion-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        }
+
+        .goal-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .goal-desc {
+            font-size: 0.9rem;
+            color: #787774;
+            margin-bottom: 20px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .progress-container { margin-top: auto; }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .progress-bar-bg {
+            height: 6px;
+            background-color: #edece9;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: var(--notion-blue);
+            width: 0%; /* 初始 0，由 JS 注入 */
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .add-goal-btn {
+            border: 2px dashed var(--notion-border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 200px;
+            color: #acaba9;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .add-goal-btn:hover {
+            background-color: var(--notion-hover);
+            border-color: var(--notion-blue);
+            color: var(--notion-blue);
+        }
+
+        .nav-actions {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="nav-actions">
+        <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-link text-muted text-decoration-none small">退出登录</button>
+        </form>
+    </div>
+
+    <div class="notion-container">
+        <div class="header-section text-center">
+            <h1 class="display-5 fw-bold mb-2">🎯 目标工作坊</h1>
+            <p class="text-muted">在这里，所有的伟大都从一个大目标开始。</p>
+        </div>
+
+        <div class="row g-4">
+            {% for goal in goals %}
+            <div class="col-md-6 col-lg-4">
+                <a href="{% url 'goal_detail' goal.pk %}" class="goal-card">
+                    <div class="goal-title">{{ goal.title }}</div>
+                    <div class="goal-desc">{{ goal.description|default:"暂无描述..." }}</div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-text">
+                            <span>进度</span>
+                            <span>{{ goal.progress }}%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill js-progress-bar" data-progress="{{ goal.progress }}"></div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+
+            <div class="col-md-6 col-lg-4">
+                <a href="{% url 'goal_add' %}" class="add-goal-btn">
+                    <span style="font-size: 2rem;">+</span>
+                    <span>开启新目标</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载后动态设置进度条宽度
+        document.addEventListener('DOMContentLoaded', () => {
+            const bars = document.querySelectorAll('.js-progress-bar');
+            bars.forEach(bar => {
+                const progress = bar.getAttribute('data-progress');
+                // 延迟一丁点时间让入场动画更明显
+                setTimeout(() => {
+                    bar.style.width = progress + '%';
+                }, 100);
+            });
+        });
+    </script>
+</body>
+</html>
