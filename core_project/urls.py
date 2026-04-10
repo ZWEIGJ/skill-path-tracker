@@ -15,12 +15,15 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from users.views import register_view  # 导入刚才写的视图
 from django.contrib.auth import views as auth_views # 引入内置认证视图
-from goals.views import dashboard_view, GoalCreateView # 导入 goals 视图
-from goals.views import toggle_goal_view
-from goals.views import GoalDeleteView
+from goals.views import (
+    dashboard_view, 
+    goal_toggle_view, 
+    GoalCreateView, 
+    GoalDeleteView
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,8 +32,10 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     
     # Goals 模块
-    path('', dashboard_view, name='dashboard'), # 首页即看板
-    path('goal/add/', GoalCreateView.as_view(), name='goal_add'),
-    path('goal/<int:pk>/toggle/', toggle_goal_view, name='goal_toggle'),
-    path('goal/<int:pk>/delete/', GoalDeleteView.as_view(), name='goal_delete'),
+    path('', dashboard_view, name='dashboard'),
+    path('add/', GoalCreateView.as_view(), name='goal_add'),
+    path('delete/<int:pk>/', GoalDeleteView.as_view(), name='goal_delete'),
+    
+    # 这里是之前的报错重灾区：确保函数名是 goal_toggle_view
+    path('toggle/<int:pk>/', goal_toggle_view, name='goal_toggle'),
 ]

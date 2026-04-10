@@ -263,6 +263,47 @@
                 }, 100);
             }
         });
+        // 处理异步状态切换
+        document.querySelectorAll('.goal-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault(); // 阻止页面跳转
+                const url = this.href;
+                const statusIcon = this.querySelector('.status-dot span');
+                const goalText = this.querySelector('.goal-text');
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // 1. 更新图标和文字样式
+                        if (data.is_completed) {
+                            statusIcon.innerHTML = '●';
+                            statusIcon.className = 'dot-done';
+                            goalText.classList.add('completed');
+                        } else {
+                            statusIcon.innerHTML = '○';
+                            statusIcon.className = 'dot-todo';
+                            goalText.classList.remove('completed');
+                        }
+                        
+                        // 2. 更新进度条和数字
+                        const progressBar = document.getElementById('progress-fill-element');
+                        const progressPercentText = document.querySelector('.progress-percent');
+                        const progressStatsText = document.querySelector('.progress-stats');
+                        
+                        progressBar.style.width = data.progress_percentage + '%';
+                        progressPercentText.innerText = data.progress_percentage + '%';
+                        progressStatsText.innerText = `已完成 ${data.completed_count} / ${data.total_count}`;
+                    }
+                });
+            });
+        });
     </script>
 
 </body>

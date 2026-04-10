@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import LearningGoal
 from .forms import LearningGoalForm
+from django.http import JsonResponse
 
 # 1. 看板视图：显示当前登录用户的目标
 @login_required
@@ -27,11 +28,28 @@ def dashboard_view(request):
         'progress_percentage': progress_percentage,
     })
 
-def toggle_goal_view(request, pk):
-    # 关键：查询时带上 user=request.user，确保越权隔离
+def goal_toggle_view(request, pk):
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     goal.is_completed = not goal.is_completed
     goal.save()
+
+    # 如果是 AJAX 请求，返回 JSON
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        # 重新计算进度（逻辑复用）
+        goals = LearningGoal.objects.filter(user=request.user)
+        total = goals.count()
+        completed = goals.filter(is_completed=True).count()
+        progress = int((completed / total) * 100) if total > 0 else 0
+        
+        return JsonResponse({
+            'status': 'success',
+            'is_completed': goal.is_completed,
+            'progress_percentage': progress,
+            'completed_count': completed,
+            'total_count': total
+        })
+
+    # 否则（普通点击），依然跳转回看板
     return redirect('dashboard')
 
 # 2. 创建视图：处理添加逻辑
