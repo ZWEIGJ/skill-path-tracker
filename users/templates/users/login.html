@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head><title>登录 - 技能路径系统</title></head>
+<body>
+    <h2>登录系统</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">登录</button>
+    </form>
+    <p>还没账号？<a href="{% url 'register' %}">立即注册</a></p>
+</body>
+</html>

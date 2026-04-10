@@ -120,3 +120,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 AUTH_USER_MODEL = 'users.CustomUser'
+# 登录成功后跳转的页面（暂时跳回首页或 admin）
+LOGIN_REDIRECT_URL = '/' 
+# 登出后跳转的页面
+LOGOUT_REDIRECT_URL = 'login'

@@ -18,7 +18,7 @@ class UserRegistrationTest(TestCase):
         """测试注册页面是否能正常打开"""
         response = self.client.get(reverse('register'))
         self.assertEqual(response.status_code, 200)
-        
+
     def test_user_registration_logic(self):
             """测试用户是否能通过表单成功注册并保存技能等级"""
             data = {
@@ -34,3 +34,30 @@ class UserRegistrationTest(TestCase):
             User = get_user_model()
             user = User.objects.get(username='newuser')
             self.assertEqual(user.skill_level, 'intermediate')
+
+
+class UserLoginTest(TestCase):
+    def setUp(self):
+        # 创建一个测试用户
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='testlogin', 
+            password='Password123!',
+            skill_level='beginner'
+        )
+
+    def test_login_view_status_code(self):
+        """测试登录页面是否能正常打开"""
+        response = self.client.get(reverse('login'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_user_login_logic(self):
+        """测试用户是否能成功登录"""
+        data = {
+            'username': 'testlogin',
+            'password': 'Password123!'
+        }
+        response = self.client.post(reverse('login'), data)
+        # 登录成功后默认应重定向（302）
+        self.assertEqual(response.status_code, 302)

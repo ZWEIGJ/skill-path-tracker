@@ -17,8 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from users.views import register_view  # 导入刚才写的视图
+from django.contrib.auth import views as auth_views # 引入内置认证视图
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('register/', register_view, name='register'), # 这里的 name='register' 必须对应测试里的 reverse('register')
+    # 使用内置的 LoginView
+    path('login/', auth_views.LoginView.as_view(template_name='users/login.html'), name='login'),
+    # 登出路由
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 ]
