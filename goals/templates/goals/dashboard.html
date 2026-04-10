@@ -1,12 +1,22 @@
 <h2>欢迎回来, {{ user.username }}!</h2>
-<p>你的当前技能等级: {{ user.get_skill_level_display }}</p>
+<p>当前技能等级: {{ user.get_skill_level_display }}</p>
 
-<h3>你的学习目标:</h3>
+<h3>我的学习目标</h3>
+<a href="{% url 'goal_add' %}">+ 添加新目标</a>
+<hr>
 <ul>
     {% for goal in goals %}
-        <li>{{ goal.title }}</li>
+        <li>
+            <strong>{{ goal.title }}</strong> 
+            <small>({{ goal.created_at|date:"Y-m-d" }})</small>
+            <p>{{ goal.description }}</p>
+        </li>
     {% empty %}
-        <li>还没有目标？快去添加一个吧！</li>
+        <li>当前还没有设定目标，点击上方链接开始吧！</li>
     {% endfor %}
 </ul>
-<a href="{% url 'logout' %}">安全退出</a>
+
+<form action="{% url 'logout' %}" method="post">
+    {% csrf_token %}
+    <button type="submit">退出登录</button>
+</form>

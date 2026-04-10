@@ -1,0 +1,8 @@
+<h2>设置新的学习目标</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">确认保存</button>
+</form>
+<br>
+<a href="{% url 'dashboard' %}">返回看板</a>
