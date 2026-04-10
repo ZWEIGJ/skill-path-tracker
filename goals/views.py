@@ -11,8 +11,18 @@ from .forms import LearningGoalForm
 # 1. 看板视图：显示当前登录用户的目标
 @login_required
 def dashboard_view(request):
-    user_goals = LearningGoal.objects.filter(user=request.user).order_by('-created_at')
-    return render(request, 'goals/dashboard.html', {'goals': user_goals})
+    goals = LearningGoal.objects.filter(user=request.user)
+    total = goals.count()
+    completed = goals.filter(is_completed=True).count()
+    # 计算百分比并转为整数
+    percent = int((completed / total) * 100) if total > 0 else 0
+    
+    return render(request, 'goals/dashboard.html', {
+        'goals': goals,
+        'progress_percentage': percent,
+        'total_goals': total,
+        'completed_goals': completed,
+    })
 def toggle_goal_view(request, pk):
     # 关键：查询时带上 user=request.user，确保越权隔离
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)

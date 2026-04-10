@@ -3,97 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人看板 - 技能路径系统</title>
+    <title>工作区 - SkillPath</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .completed-text {
+        :root {
+            --notion-text: #37352f;
+            --notion-bg: #ffffff;
+            --notion-hover: #f1f1ef;
+            --notion-border: #edece9;
+            --notion-blue: #5297ff;
+            --notion-gray: #787774;
+            --notion-light-gray: #dfdfde;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            color: var(--notion-text);
+            background-color: var(--notion-bg);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* 顶部导航 */
+        .nav-actions {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--notion-gray);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .logout-btn:hover {
+            color: var(--notion-text);
+            text-decoration: underline;
+        }
+
+        /* 容器布局 */
+        .notion-container {
+            max-width: 800px;
+            margin: 100px auto;
+            padding: 0 40px;
+        }
+
+        .notion-title {
+            font-size: 40px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .notion-subtitle {
+            color: var(--notion-gray);
+            margin-bottom: 30px;
+        }
+
+        /* 进度条板块 */
+        .progress-card {
+            background-color: #f7f7f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 40px;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .progress-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .progress-stats {
+            font-size: 0.75rem;
+            color: var(--notion-gray);
+        }
+
+        .progress-percent {
+            font-weight: 700;
+            color: var(--notion-blue);
+        }
+
+        .progress-track {
+            height: 6px;
+            background-color: #e8e8e6;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--notion-blue);
+            width: 0%; /* 默认 0，由 JS 驱动动画 */
+            transition: width 1s cubic-bezier(0.65, 0, 0.35, 1);
+        }
+
+        /* 列表项 */
+        .goal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 2px -12px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .goal-item:hover {
+            background-color: var(--notion-hover);
+        }
+
+        .goal-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: inherit;
+            flex-grow: 1;
+        }
+
+        .status-dot {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .dot-done { color: var(--notion-blue); }
+        .dot-todo { color: var(--notion-light-gray); }
+
+        .goal-text.completed {
             text-decoration: line-through;
-            color: #adb5bd; /* 灰度色 */
+            color: #a1a19f;
         }
-        .goal-card {
-            transition: transform 0.2s;
+
+        .delete-btn {
+            opacity: 0;
+            color: #eb5757;
+            font-size: 0.75rem;
+            text-decoration: none;
         }
-        .goal-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+
+        .goal-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        /* 添加按钮 */
+        .add-btn {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 20px;
+            padding: 8px 12px;
+            color: #acaba9;
+            text-decoration: none;
+            font-size: 0.95rem;
+            border-radius: 4px;
+        }
+
+        .add-btn:hover {
+            background-color: var(--notion-hover);
+            color: var(--notion-text);
+        }
+
+        .alert-notion {
+            background-color: var(--notion-hover);
+            border: none;
+            font-size: 0.9rem;
+            border-radius: 8px;
         }
     </style>
 </head>
-<body class="bg-light">
+<body>
 
-{% if messages %}
-    <div class="container mt-3">
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    </div>
-{% endif %}
-
-<nav class="navbar navbar-dark bg-primary mb-4">
-    <div class="container">
-        <span class="navbar-brand mb-0 h1">🎯 技能路径系统</span>
-        <form action="{% url 'logout' %}" method="post" class="m-0">
+    <div class="nav-actions">
+        <span class="text-muted small">👤 {{ user.username }}</span>
+        <form action="{% url 'logout' %}" method="post" style="display: inline;">
             {% csrf_token %}
-            <button type="submit" class="btn btn-outline-light btn-sm">安全退出</button>
+            <button type="submit" class="logout-btn">退出登录</button>
         </form>
     </div>
-</nav>
 
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-sm mb-4">
-                <div class="card-body">
-                    <h5 class="card-title text-secondary">欢迎回来, {{ user.username }}!</h5>
-                    <p class="card-text">
-                        <span class="badge bg-info text-dark">当前等级: {{ user.get_skill_level_display }}</span>
-                    </p>
-                    <a href="{% url 'goal_add' %}" class="btn btn-primary btn-sm">+ 添加新学习目标</a>
+    <div class="notion-container">
+        <div class="notion-header">
+            <h1 class="notion-title">🚀 我的学习路径</h1>
+            <p class="notion-subtitle">在这里打磨你的技能块，保持进步。</p>
+        </div>
+
+        <div class="progress-card">
+            <div class="progress-info">
+                <div>
+                    <span class="progress-label">当前总进度</span>
+                    <div class="progress-stats">已完成 {{ completed_goals }} / {{ total_goals }}</div>
                 </div>
+                <span class="progress-percent">{{ progress_percentage }}%</span>
             </div>
-
-            <h4 class="mb-3">我的学习目标</h4>
-
-            <div class="list-group shadow-sm">
-                {% for goal in goals %}
-                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center goal-card">
-                        <div>
-                            <span class="h6 mb-0 {% if goal.is_completed %}completed-text{% endif %}">
-                                {{ goal.title }}
-                            </span>
-                            {% if goal.description %}
-                                <small class="text-muted d-block">{{ goal.description }}</small>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="btn-group">
-                            <a href="{% url 'goal_toggle' goal.id %}" 
-                               class="btn btn-sm {% if goal.is_completed %}btn-warning{% else %}btn-success{% endif %}">
-                                {% if goal.is_completed %}撤销{% else %}完成{% endif %}
-                            </a>
-
-                            <form action="{% url 'goal_delete' goal.id %}" method="post" class="d-inline">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                        onclick="return confirm('确定要永久删除这个目标吗？')">
-                                    删除
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                {% empty %}
-                    <div class="list-group-item text-center py-4 text-muted">
-                        还没有目标？点击上方按钮开启你的技能树！
-                    </div>
-                {% endfor %}
+            <div class="progress-track">
+                <div id="progress-fill-element" class="progress-fill"></div>
             </div>
         </div>
-    </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-notion mb-4">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="goal-list">
+            {% for goal in goals %}
+                <div class="goal-item">
+                    <a href="{% url 'goal_toggle' goal.pk %}" class="goal-link">
+                        <span class="status-dot">
+                            {% if goal.is_completed %}
+                                <span class="dot-done">●</span>
+                            {% else %}
+                                <span class="dot-todo">○</span>
+                            {% endif %}
+                        </span>
+                        <span class="goal-text {% if goal.is_completed %}completed{% endif %}">
+                            {{ goal.title }}
+                        </span>
+                    </a>
+                    <a href="{% url 'goal_delete' goal.pk %}" class="delete-btn" onclick="return confirm('确定要删除吗？')">删除</a>
+                </div>
+            {% empty %}
+                <div class="py-5 text-center border border-dashed rounded text-muted">
+                    ✨ 点击下方新增一个目标开始吧
+                </div>
+            {% endfor %}
+        </div>
+
+        <a href="{% url 'goal_add' %}" class="add-btn">
+            <span class="me-2" style="font-size: 1.2rem;">+</span> 新增学习目标
+        </a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const progressBar = document.getElementById('progress-fill-element');
+            if (progressBar) {
+                // Django 渲染百分比到 JS 变量中
+                const percentage = "{{ progress_percentage }}";
+                // 延迟一丁点时间触发动画，效果更优雅
+                setTimeout(() => {
+                    progressBar.style.width = percentage + "%";
+                }, 100);
+            }
+        });
+    </script>
+
 </body>
 </html>
