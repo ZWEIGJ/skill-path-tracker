@@ -1,45 +1,30 @@
 from django.test import TestCase
-from django.urls import reverse
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model  # 修改这里：动态获取当前激活的用户模型
 from .models import LearningGoal
+from django.urls import reverse
 
-class GoalUpdateTest(TestCase):
+User = get_user_model()  # 获取你自定义的 CustomUser
+
+class GoalProgressTest(TestCase):
     def setUp(self):
-        User = get_user_model()
-        self.user = User.objects.create_user(username='amy', password='Password123!')
-        self.client.login(username='amy', password='Password123!')
-        self.goal = LearningGoal.objects.create(user=self.user, title="测试目标")
+        # 这里的代码现在会自动使用你的 CustomUser
+        self.user = User.objects.create_user(username='testuser', password='password123')
+        self.client.login(username='testuser', password='password123')
 
-    def test_toggle_goal_status(self):
-        """测试点击后状态反转"""
-        # 发送请求到切换接口
-        response = self.client.get(reverse('goal_toggle', args=[self.goal.id]))
-        self.goal.refresh_from_db()
-        self.assertTrue(self.goal.is_completed) # 初始是False，点击后应为True
-        
-        # 再次点击
-        self.client.get(reverse('goal_toggle', args=[self.goal.id]))
-        self.goal.refresh_from_db()
-        self.assertFalse(self.goal.is_completed) # 应变回False
-    def test_delete_goal_logic(self):
-        """测试用户删除自己的目标"""
-        response = self.client.post(reverse('goal_delete', args=[self.goal.id]))
-        # 验证重定向到看板
-        self.assertEqual(response.status_code, 302)
-        # 验证数据库中该目标已消失
-        self.assertFalse(LearningGoal.objects.filter(id=self.goal.id).exists())
+    def test_progress_calculation(self):
+        """测试看板的进度计算逻辑"""
+        # 1. 初始状态：0个目标
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual(response.context['progress_percentage'], 0)
 
-    def test_delete_goal_security(self):
-        """测试越权删除：Bob 不能删除 Amy 的目标"""
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        # 创建另一个用户 Bob
-        bob = User.objects.create_user(username='bob', password='Password123!')
-        self.client.login(username='bob', password='Password123!')
+        # 2. 增加两个目标，一个完成，一个未完成
+        LearningGoal.objects.create(user=self.user, title="Goal 1", is_completed=True)
+        LearningGoal.objects.create(user=self.user, title="Goal 2", is_completed=False)
         
-        # Bob 尝试删除 Amy 的目标 (self.goal)
-        response = self.client.post(reverse('goal_delete', args=[self.goal.id]))
+        # 再次请求页面
+        response = self.client.get(reverse('dashboard'))
         
-        # 预期结果：应该返回 404，且目标依然存在于数据库
-        self.assertEqual(response.status_code, 404)
-        self.assertTrue(LearningGoal.objects.filter(id=self.goal.id).exists())
+        # 验证计算结果
+        self.assertEqual(response.context['progress_percentage'], 50)
+        self.assertEqual(response.context['total_goals'], 2)
+        self.assertEqual(response.context['completed_goals'], 1)

@@ -12,17 +12,21 @@ from .forms import LearningGoalForm
 @login_required
 def dashboard_view(request):
     goals = LearningGoal.objects.filter(user=request.user)
+    
+    # TDD 核心逻辑：计算进度
     total = goals.count()
     completed = goals.filter(is_completed=True).count()
-    # 计算百分比并转为整数
-    percent = int((completed / total) * 100) if total > 0 else 0
+    
+    # 严谨的百分比计算
+    progress_percentage = int((completed / total) * 100) if total > 0 else 0
     
     return render(request, 'goals/dashboard.html', {
         'goals': goals,
-        'progress_percentage': percent,
         'total_goals': total,
         'completed_goals': completed,
+        'progress_percentage': progress_percentage,
     })
+
 def toggle_goal_view(request, pk):
     # 关键：查询时带上 user=request.user，确保越权隔离
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
