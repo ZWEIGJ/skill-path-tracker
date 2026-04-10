@@ -20,6 +20,7 @@ from users.views import register_view  # 导入刚才写的视图
 from django.contrib.auth import views as auth_views # 引入内置认证视图
 from goals.views import dashboard_view, GoalCreateView # 导入 goals 视图
 from goals.views import toggle_goal_view
+from goals.views import GoalDeleteView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -31,4 +32,5 @@ urlpatterns = [
     path('', dashboard_view, name='dashboard'), # 首页即看板
     path('goal/add/', GoalCreateView.as_view(), name='goal_add'),
     path('goal/<int:pk>/toggle/', toggle_goal_view, name='goal_toggle'),
+    path('goal/<int:pk>/delete/', GoalDeleteView.as_view(), name='goal_delete'),
 ]

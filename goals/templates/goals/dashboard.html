@@ -1,51 +1,88 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-hans">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>个人看板 - 技能路径系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        /* 这里定义状态样式，以后优化颜值时可以挪到 CSS 文件里 */
-        .goal-item {
-            margin-bottom: 10px;
-        }
         .completed-text {
             text-decoration: line-through;
-            color: gray;
+            color: #adb5bd; /* 灰度色 */
         }
-        .action-link {
-            text-decoration: none;
-            margin-left: 10px;
-            font-size: 0.9em;
+        .goal-card {
+            transition: transform 0.2s;
+        }
+        .goal-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
     </style>
 </head>
-<body>
-    <h2>欢迎回来, {{ user.username }}!</h2>
-    <p>当前技能等级: {{ user.get_skill_level_display }}</p>
+<body class="bg-light">
 
-    <h3>我的学习目标</h3>
-    <a href="{% url 'goal_add' %}">+ 添加新目标</a>
-    <hr>
+<nav class="navbar navbar-dark bg-primary mb-4">
+    <div class="container">
+        <span class="navbar-brand mb-0 h1">🎯 技能路径系统</span>
+        <form action="{% url 'logout' %}" method="post" class="m-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-light btn-sm">安全退出</button>
+        </form>
+    </div>
+</nav>
 
-    <ul>
-        {% for goal in goals %}
-            <li class="goal-item">
-                <span class="{% if goal.is_completed %}completed-text{% endif %}">
-                    {{ goal.title }}
-                </span>
-                
-                <a href="{% url 'goal_toggle' goal.id %}" class="action-link">
-                    [{% if goal.is_completed %}标记未完成{% else %}标记已完成{% endif %}]
-                </a>
-            </li>
-        {% empty %}
-            <li>暂无目标，开始你的第一个挑战吧！</li>
-        {% endfor %}
-    </ul>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title text-secondary">欢迎回来, {{ user.username }}!</h5>
+                    <p class="card-text">
+                        <span class="badge bg-info text-dark">当前等级: {{ user.get_skill_level_display }}</span>
+                    </p>
+                    <a href="{% url 'goal_add' %}" class="btn btn-primary btn-sm">+ 添加新学习目标</a>
+                </div>
+            </div>
 
-    <hr>
-    <form action="{% url 'logout' %}" method="post">
-        {% csrf_token %}
-        <button type="submit">退出登录</button>
-    </form>
+            <h4 class="mb-3">我的学习目标</h4>
+
+            <div class="list-group shadow-sm">
+                {% for goal in goals %}
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center goal-card">
+                        <div>
+                            <span class="h6 mb-0 {% if goal.is_completed %}completed-text{% endif %}">
+                                {{ goal.title }}
+                            </span>
+                            {% if goal.description %}
+                                <small class="text-muted d-block">{{ goal.description }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="btn-group">
+                            <a href="{% url 'goal_toggle' goal.id %}" 
+                               class="btn btn-sm {% if goal.is_completed %}btn-warning{% else %}btn-success{% endif %}">
+                                {% if goal.is_completed %}撤销{% else %}完成{% endif %}
+                            </a>
+
+                            <form action="{% url 'goal_delete' goal.id %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                        onclick="return confirm('确定要永久删除这个目标吗？')">
+                                    删除
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="list-group-item text-center py-4 text-muted">
+                        还没有目标？点击上方按钮开启你的技能树！
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404, redirect
 from django.views.generic.edit import CreateView
+from django.views.generic.edit import DeleteView
 from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -30,3 +31,11 @@ class GoalCreateView(LoginRequiredMixin, CreateView):
         # 核心：将当前登录的用户自动赋值给目标的 user 字段
         form.instance.user = self.request.user
         return super().form_valid(form)
+    
+class GoalDeleteView(LoginRequiredMixin, DeleteView):
+    model = LearningGoal
+    success_url = reverse_lazy('dashboard')
+
+    def get_queryset(self):
+        """这一步是核心：确保查询集只包含当前登录用户自己的目标"""
+        return self.model.objects.filter(user=self.request.user)
