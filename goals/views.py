@@ -1,10 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.views.generic.edit import CreateView, DeleteView
+from django.views.decorators.http import require_POST
+from django.views.generic.edit import CreateView
 from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
-from .models import LearningGoal, SubTask # 确保导入了 SubTask
+from django.contrib import messages  # 修复 Pylance 报错的关键导入
+from .models import LearningGoal, SubTask
 
 # --- 1. 大目标管理 (页面级) ---
 
@@ -18,11 +20,10 @@ def goal_list_view(request):
 
 @login_required
 def goal_detail_view(request, pk):
-    """详情页：大目标的详情 + Notion 风格的子任务列表"""
+    """详情页：大目标的详情 + 子任务列表"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     subtasks = goal.subtasks.all().order_by('created_at')
     
-    # 这里的进度计算已经在 model 的 property 中实现了
     return render(request, 'goals/goal_detail.html', {
         'goal': goal,
         'subtasks': subtasks,
@@ -32,7 +33,7 @@ def goal_detail_view(request, pk):
 class GoalCreateView(LoginRequiredMixin, CreateView):
     """创建大目标的独立页面"""
     model = LearningGoal
-    fields = ['title', 'description'] # 大目标通常需要描述
+    fields = ['title', 'description']
     template_name = 'goals/goal_form.html'
     success_url = reverse_lazy('goal_list')
 
@@ -40,20 +41,21 @@ class GoalCreateView(LoginRequiredMixin, CreateView):
         form.instance.user = self.request.user
         return super().form_valid(form)
 
-class GoalDeleteView(LoginRequiredMixin, DeleteView):
-    """删除整个大目标"""
-    model = LearningGoal
-    success_url = reverse_lazy('goal_list')
-
-    def get_queryset(self):
-        return self.model.objects.filter(user=self.request.user)
+@login_required
+@require_POST
+def goal_delete_view(request, pk):
+    """删除大目标及其关联的所有子任务"""
+    goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
+    goal.delete()
+    messages.success(request, "目标及其所有关联任务已成功移除。")
+    return redirect('goal_list')
 
 
 # --- 2. 子任务管理 (AJAX 纯异步接口) ---
 
 @login_required
 def subtask_add_ajax(request, goal_id):
-    """异步添加工作点"""
+    """异步添加子任务"""
     if request.method == 'POST':
         goal = get_object_or_404(LearningGoal, pk=goal_id, user=request.user)
         title = request.POST.get('title', '').strip()
@@ -68,9 +70,10 @@ def subtask_add_ajax(request, goal_id):
     return JsonResponse({'status': 'error'}, status=400)
 
 @login_required
-def subtask_toggle_ajax(request, pk):
-    """异步切换工作点完成状态"""
-    subtask = get_object_or_404(SubTask, pk=pk, goal__user=request.user)
+def subtask_toggle_ajax(request, task_id):
+    """异步切换子任务状态"""
+    # 注意参数名改为了 task_id，与 urls.py 保持一致
+    subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
     subtask.is_completed = not subtask.is_completed
     subtask.save()
     
@@ -81,9 +84,9 @@ def subtask_toggle_ajax(request, pk):
     })
 
 @login_required
-def subtask_delete_ajax(request, pk):
-    """异步删除工作点"""
-    subtask = get_object_or_404(SubTask, pk=pk, goal__user=request.user)
+def subtask_delete_ajax(request, task_id):
+    """异步删除子任务"""
+    subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
     goal = subtask.goal
     subtask.delete()
     

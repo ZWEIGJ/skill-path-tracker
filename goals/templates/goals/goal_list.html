@@ -12,6 +12,7 @@
             --notion-hover: #f1f1ef;
             --notion-border: #edece9;
             --notion-blue: #5297ff;
+            --notion-red: #eb5757;
         }
 
         body {
@@ -39,7 +40,7 @@
             display: flex;
             flex-direction: column;
             height: 100%;
-            position: relative;
+            position: relative; /* 必须为 relative 以便内部绝对定位 */
         }
 
         .goal-card:hover {
@@ -48,10 +49,35 @@
             box-shadow: 0 10px 20px rgba(0,0,0,0.05);
         }
 
+        /* 顶部标题栏布局 */
+        .card-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
         .goal-title {
             font-size: 1.25rem;
             font-weight: 700;
-            margin-bottom: 12px;
+            padding-right: 20px; /* 为删除按钮留出空间 */
+        }
+
+        /* 删除按钮样式 */
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #acaba9;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            line-height: 0;
+            z-index: 10; /* 确保在链接上方 */
+        }
+
+        .delete-btn:hover {
+            background-color: #ffe7e7;
+            color: var(--notion-red);
         }
 
         .goal-desc {
@@ -85,7 +111,7 @@
         .progress-bar-fill {
             height: 100%;
             background-color: var(--notion-blue);
-            width: 0%; /* 初始 0，由 JS 注入 */
+            width: 0%;
             transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
@@ -134,20 +160,37 @@
         <div class="row g-4">
             {% for goal in goals %}
             <div class="col-md-6 col-lg-4">
-                <a href="{% url 'goal_detail' goal.pk %}" class="goal-card">
-                    <div class="goal-title">{{ goal.title }}</div>
-                    <div class="goal-desc">{{ goal.description|default:"暂无描述..." }}</div>
-                    
-                    <div class="progress-container">
-                        <div class="progress-text">
-                            <span>进度</span>
-                            <span>{{ goal.progress }}%</span>
+                <div class="position-relative h-100">
+                    <a href="{% url 'goal_detail' goal.pk %}" class="goal-card">
+                        <div class="card-header-flex">
+                            <div class="goal-title">{{ goal.title }}</div>
                         </div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-fill js-progress-bar" data-progress="{{ goal.progress }}"></div>
+                        
+                        <div class="goal-desc">{{ goal.description|default:"暂无描述..." }}</div>
+                        
+                        <div class="progress-container">
+                            <div class="progress-text">
+                                <span>进度</span>
+                                <span>{{ goal.progress }}%</span>
+                            </div>
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill js-progress-bar" data-progress="{{ goal.progress }}"></div>
+                            </div>
                         </div>
-                    </div>
-                </a>
+                    </a>
+
+                    <form action="{% url 'goal_delete' goal.pk %}" method="post" 
+                          style="position: absolute; top: 20px; right: 20px; z-index: 20;"
+                          onsubmit="return confirm('确定要删除这个大目标及其所有子任务吗？');">
+                        {% csrf_token %}
+                        <button type="submit" class="delete-btn" title="删除目标">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
             </div>
             {% endfor %}
 
@@ -161,12 +204,10 @@
     </div>
 
     <script>
-        // 页面加载后动态设置进度条宽度
         document.addEventListener('DOMContentLoaded', () => {
             const bars = document.querySelectorAll('.js-progress-bar');
             bars.forEach(bar => {
                 const progress = bar.getAttribute('data-progress');
-                // 延迟一丁点时间让入场动画更明显
                 setTimeout(() => {
                     bar.style.width = progress + '%';
                 }, 100);
