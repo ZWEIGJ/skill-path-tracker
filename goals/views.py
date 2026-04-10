@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect
 from django.views.generic.edit import CreateView
 from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required
@@ -11,6 +12,12 @@ from .forms import LearningGoalForm
 def dashboard_view(request):
     user_goals = LearningGoal.objects.filter(user=request.user).order_by('-created_at')
     return render(request, 'goals/dashboard.html', {'goals': user_goals})
+def toggle_goal_view(request, pk):
+    # 关键：查询时带上 user=request.user，确保越权隔离
+    goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
+    goal.is_completed = not goal.is_completed
+    goal.save()
+    return redirect('dashboard')
 
 # 2. 创建视图：处理添加逻辑
 class GoalCreateView(LoginRequiredMixin, CreateView):

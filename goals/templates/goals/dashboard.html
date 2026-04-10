@@ -1,22 +1,51 @@
-<h2>欢迎回来, {{ user.username }}!</h2>
-<p>当前技能等级: {{ user.get_skill_level_display }}</p>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>个人看板 - 技能路径系统</title>
+    <style>
+        /* 这里定义状态样式，以后优化颜值时可以挪到 CSS 文件里 */
+        .goal-item {
+            margin-bottom: 10px;
+        }
+        .completed-text {
+            text-decoration: line-through;
+            color: gray;
+        }
+        .action-link {
+            text-decoration: none;
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h2>欢迎回来, {{ user.username }}!</h2>
+    <p>当前技能等级: {{ user.get_skill_level_display }}</p>
 
-<h3>我的学习目标</h3>
-<a href="{% url 'goal_add' %}">+ 添加新目标</a>
-<hr>
-<ul>
-    {% for goal in goals %}
-        <li>
-            <strong>{{ goal.title }}</strong> 
-            <small>({{ goal.created_at|date:"Y-m-d" }})</small>
-            <p>{{ goal.description }}</p>
-        </li>
-    {% empty %}
-        <li>当前还没有设定目标，点击上方链接开始吧！</li>
-    {% endfor %}
-</ul>
+    <h3>我的学习目标</h3>
+    <a href="{% url 'goal_add' %}">+ 添加新目标</a>
+    <hr>
 
-<form action="{% url 'logout' %}" method="post">
-    {% csrf_token %}
-    <button type="submit">退出登录</button>
-</form>
+    <ul>
+        {% for goal in goals %}
+            <li class="goal-item">
+                <span class="{% if goal.is_completed %}completed-text{% endif %}">
+                    {{ goal.title }}
+                </span>
+                
+                <a href="{% url 'goal_toggle' goal.id %}" class="action-link">
+                    [{% if goal.is_completed %}标记未完成{% else %}标记已完成{% endif %}]
+                </a>
+            </li>
+        {% empty %}
+            <li>暂无目标，开始你的第一个挑战吧！</li>
+        {% endfor %}
+    </ul>
+
+    <hr>
+    <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit">退出登录</button>
+    </form>
+</body>
+</html>
