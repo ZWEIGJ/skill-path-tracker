@@ -109,7 +109,7 @@
         .progress-fill {
             height: 100%;
             background-color: var(--notion-blue);
-            width: 0%; /* 默认 0，由 JS 驱动动画 */
+            width: 0%; 
             transition: width 1s cubic-bezier(0.65, 0, 0.35, 1);
         }
 
@@ -121,7 +121,7 @@
             padding: 8px 12px;
             margin: 2px -12px;
             border-radius: 6px;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
         }
 
         .goal-item:hover {
@@ -162,16 +162,18 @@
             opacity: 1;
         }
 
-        /* 添加按钮 */
+        /* 增强版添加按钮及输入框 */
         .add-btn {
             display: inline-flex;
             align-items: center;
-            margin-top: 20px;
+            margin-top: 10px;
             padding: 8px 12px;
             color: #acaba9;
             text-decoration: none;
             font-size: 0.95rem;
             border-radius: 4px;
+            width: 100%;
+            margin-left: -12px;
         }
 
         .add-btn:hover {
@@ -179,11 +181,22 @@
             color: var(--notion-text);
         }
 
-        .alert-notion {
-            background-color: var(--notion-hover);
-            border: none;
-            font-size: 0.9rem;
-            border-radius: 8px;
+        #new-goal-title:focus {
+            outline: none;
+        }
+
+        kbd {
+            background-color: #eee;
+            border-radius: 3px;
+            border: 1px solid #b4b4b4;
+            box-shadow: 0 1px 1px rgba(0,0,0,.2);
+            color: #333;
+            display: inline-block;
+            font-size: .85em;
+            font-weight: 700;
+            line-height: 1;
+            padding: 2px 4px;
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -216,15 +229,9 @@
             </div>
         </div>
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-notion mb-4">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-
-        <div class="goal-list">
+        <div id="goal-container" class="goal-list">
             {% for goal in goals %}
-                <div class="goal-item">
+                <div class="goal-item" data-id="{{ goal.pk }}">
                     <a href="{% url 'goal_toggle' goal.pk %}" class="goal-link">
                         <span class="status-dot">
                             {% if goal.is_completed %}
@@ -237,118 +244,174 @@
                             {{ goal.title }}
                         </span>
                     </a>
-                    <a href="{% url 'goal_delete' goal.pk %}" class="delete-btn" onclick="return confirm('确定要删除吗？')">删除</a>
+                    <a href="{% url 'goal_delete' goal.pk %}" class="delete-btn">删除</a>
                 </div>
             {% empty %}
-                <div class="py-5 text-center border border-dashed rounded text-muted">
+                <div id="empty-state" class="py-5 text-center border border-dashed rounded text-muted mb-3">
                     ✨ 点击下方新增一个目标开始吧
                 </div>
             {% endfor %}
         </div>
 
-        <a href="{% url 'goal_add' %}" class="add-btn">
-            <span class="me-2" style="font-size: 1.2rem;">+</span> 新增学习目标
-        </a>
+        <div id="add-goal-wrapper">
+            <a href="javascript:void(0);" id="show-add-input" class="add-btn">
+                <span class="me-2" style="font-size: 1.2rem;">+</span> 新增学习目标
+            </a>
+            
+            <div id="inline-add-form" style="display: none; padding: 8px 12px; margin-left: -12px;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="dot-todo" style="font-size: 18px; width: 24px; text-align: center;">○</span>
+                    <input type="text" id="new-goal-title" class="form-control form-control-sm border-0 shadow-none" 
+                           placeholder="输入目标名称，回车保存..." 
+                           style="background: transparent; padding: 0; font-size: 1rem; border-bottom: 1px solid var(--notion-border) !important; border-radius: 0;">
+                </div>
+                <div class="mt-2 text-muted" style="font-size: 0.75rem; margin-left: 36px;">
+                    按下 <kbd>Enter</kbd> 保存，<kbd>Esc</kbd> 取消
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const goalContainer = document.getElementById('goal-container');
+            const showAddBtn = document.getElementById('show-add-input');
+            const inlineForm = document.getElementById('inline-add-form');
+            const newGoalInput = document.getElementById('new-goal-title');
             const progressBar = document.getElementById('progress-fill-element');
-            if (progressBar) {
-                // Django 渲染百分比到 JS 变量中
-                const percentage = "{{ progress_percentage }}";
-                // 延迟一丁点时间触发动画，效果更优雅
-                setTimeout(() => {
-                    progressBar.style.width = percentage + "%";
-                }, 100);
+
+            // --- 助手函数：更新 UI ---
+            function updateProgressUI(data) {
+                const progressPercentText = document.querySelector('.progress-percent');
+                const progressStatsText = document.querySelector('.progress-stats');
+                
+                progressBar.style.width = data.progress_percentage + '%';
+                progressPercentText.innerText = data.progress_percentage + '%';
+                progressStatsText.innerText = `已完成 ${data.completed_count} / ${data.total_count}`;
             }
-        });
-        // 处理异步状态切换
-        document.querySelectorAll('.goal-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault(); // 阻止页面跳转
-                const url = this.href;
-                const statusIcon = this.querySelector('.status-dot span');
-                const goalText = this.querySelector('.goal-text');
 
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        // 1. 更新图标和文字样式
-                        if (data.is_completed) {
-                            statusIcon.innerHTML = '●';
-                            statusIcon.className = 'dot-done';
-                            goalText.classList.add('completed');
-                        } else {
-                            statusIcon.innerHTML = '○';
-                            statusIcon.className = 'dot-todo';
-                            goalText.classList.remove('completed');
+            // --- 1. 初始化进度条动画 ---
+            setTimeout(() => {
+                progressBar.style.width = "{{ progress_percentage }}%";
+            }, 100);
+
+            // --- 2. 事件委托：处理切换和删除 (支持动态生成的 HTML) ---
+            goalContainer.addEventListener('click', function(e) {
+                // A. 切换完成状态
+                const toggleLink = e.target.closest('.goal-link');
+                if (toggleLink) {
+                    e.preventDefault();
+                    fetch(toggleLink.href, {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': '{{ csrf_token }}' }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            const icon = toggleLink.querySelector('.status-dot span');
+                            const text = toggleLink.querySelector('.goal-text');
+                            icon.innerHTML = data.is_completed ? '●' : '○';
+                            icon.className = data.is_completed ? 'dot-done' : 'dot-todo';
+                            text.classList.toggle('completed', data.is_completed);
+                            updateProgressUI(data);
                         }
-                        
-                        // 2. 更新进度条和数字
-                        const progressBar = document.getElementById('progress-fill-element');
-                        const progressPercentText = document.querySelector('.progress-percent');
-                        const progressStatsText = document.querySelector('.progress-stats');
-                        
-                        progressBar.style.width = data.progress_percentage + '%';
-                        progressPercentText.innerText = data.progress_percentage + '%';
-                        progressStatsText.innerText = `已完成 ${data.completed_count} / ${data.total_count}`;
-                    }
-                });
+                    });
+                    return;
+                }
+
+                // B. 删除目标
+                const deleteBtn = e.target.closest('.delete-btn');
+                if (deleteBtn) {
+                    e.preventDefault();
+                    if (!confirm('确定要删除吗？')) return;
+
+                    const goalItem = deleteBtn.closest('.goal-item');
+                    fetch(deleteBtn.href, {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': '{{ csrf_token }}' }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            goalItem.style.opacity = '0';
+                            goalItem.style.transform = 'translateX(20px)';
+                            setTimeout(() => {
+                                goalItem.remove();
+                                if (goalContainer.querySelectorAll('.goal-item').length === 0) location.reload();
+                            }, 300);
+                            updateProgressUI(data);
+                        }
+                    });
+                }
             });
-        });
-        // 处理异步删除
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault(); // 阻止 <a> 标签的默认跳转
-                if (!confirm('确定要删除吗？')) return;
 
-                const url = this.href;
-                const goalItem = this.closest('.goal-item'); // 找到这一行 HTML 元素
+            // --- 3. Inline Create 交互逻辑 ---
+            showAddBtn.addEventListener('click', () => {
+                showAddBtn.style.display = 'none';
+                inlineForm.style.display = 'block';
+                newGoalInput.focus();
+            });
 
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        // 1. 增加一个淡出效果，然后移除元素
-                        goalItem.style.transition = 'all 0.3s ease';
-                        goalItem.style.opacity = '0';
-                        goalItem.style.transform = 'translateX(20px)';
-                        
-                        setTimeout(() => {
-                            goalItem.remove();
-                            // 如果列表空了，刷新页面显示空状态提示，或者手动插入空状态 HTML
-                            if (document.querySelectorAll('.goal-item').length === 0) {
-                                location.reload();
-                            }
-                        }, 300);
+            const hideInput = () => {
+                inlineForm.style.display = 'none';
+                showAddBtn.style.display = 'inline-flex';
+                newGoalInput.value = '';
+            };
 
-                        // 2. 更新进度条数字和长度
-                        const progressBar = document.getElementById('progress-fill-element');
-                        const progressPercentText = document.querySelector('.progress-percent');
-                        const progressStatsText = document.querySelector('.progress-stats');
-                        
-                        progressBar.style.width = data.progress_percentage + '%';
-                        progressPercentText.innerText = data.progress_percentage + '%';
-                        progressStatsText.innerText = `已完成 ${data.completed_count} / ${data.total_count}`;
-                    }
-                });
+            newGoalInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') hideInput();
+                if (e.key === 'Enter' && this.value.trim() !== '') {
+                    const title = this.value.trim();
+                    
+                    fetch("{% url 'goal_add' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: `title=${encodeURIComponent(title)}`
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // 移除空状态提示
+                            const emptyState = document.getElementById('empty-state');
+                            if (emptyState) emptyState.remove();
+
+                            // 动态构建并插入新 HTML
+                            const newItem = `
+                                <div class="goal-item" style="opacity: 0; transform: translateY(-10px);">
+                                    <a href="/toggle/${data.goal_id}/" class="goal-link">
+                                        <span class="status-dot"><span class="dot-todo">○</span></span>
+                                        <span class="goal-text">${data.goal_title}</span>
+                                    </a>
+                                    <a href="/delete/${data.goal_id}/" class="delete-btn">删除</a>
+                                </div>`;
+                            goalContainer.insertAdjacentHTML('beforeend', newItem);
+                            
+                            // 触发入场动画
+                            const lastItem = goalContainer.lastElementChild;
+                            setTimeout(() => {
+                                lastItem.style.transition = 'all 0.3s ease';
+                                lastItem.style.opacity = '1';
+                                lastItem.style.transform = 'translateY(0)';
+                            }, 10);
+
+                            updateProgressUI(data);
+                            hideInput();
+                        }
+                    });
+                }
+            });
+
+            // 点击空白处取消
+            document.addEventListener('click', (e) => {
+                if (!document.getElementById('add-goal-wrapper').contains(e.target) && inlineForm.style.display === 'block') {
+                    hideInput();
+                }
             });
         });
     </script>
-
 </body>
 </html>
