@@ -21,28 +21,31 @@ def goal_list_view(request):
     """首页：显示大目标列表、统计看板及图表数据"""
     now_date = timezone.now().date()
     
-    # 获取当前用户的所有目标（用于全局统计）
+    # 获取当前用户的所有目标
     user_goals = LearningGoal.objects.filter(user=request.user)
     
-    # 1. 顶部数据统计
+    # 1. 顶部数据统计逻辑修正
     total_count = user_goals.count()
-    completed_count = sum(1 for g in user_goals if g.progress >= 100)
-    in_progress_count = sum(1 for g in user_goals if 0 < g.progress < 100)
+    # 已达成：指进到 100% 的目标（无论是否归档）
+    completed_real_count = sum(1 for g in user_goals if g.progress >= 100)
+    # 进行中：指当前页面显示的目标（未归档的目标）
+    active_display_count = user_goals.filter(is_archived=False).count()
+    # 归档数：真正进入实验室的数量（用于前端显示数字）
+    archived_count = user_goals.filter(is_archived=True).count()
     
-    # 本周完成的子任务总数（用于“本周突破”卡片）
+    # 本周完成的子任务总数（解决 FieldError：暂时改用 created_at，除非你去 models 加了 updated_at）
     last_7_days = timezone.now() - timedelta(days=7)
     weekly_subtasks = SubTask.objects.filter(
         goal__user=request.user, 
         is_completed=True, 
-        updated_at__gte=last_7_days
+        created_at__gte=last_7_days 
     ).count()
 
-    # 2. 列表显示：只显示未归档的目标，并进行复杂排序
+    # 2. 列表显示：只显示未归档的目标
     goals = user_goals.filter(is_archived=False).annotate(
         total_tasks=Count('subtasks'),
         completed_tasks_count=Count('subtasks', filter=Q(subtasks__is_completed=True)),
         
-        # 排序逻辑：未过期 > 高优先级 > 截止日期
         is_overdue_sort=Case(
             When(
                 Q(deadline__lt=now_date) & 
@@ -61,7 +64,7 @@ def goal_list_view(request):
         )
     ).order_by('is_overdue_sort', '-priority_weight', 'deadline')
 
-    # 3. 准备 Chart.js 所需的 7 天数据
+    # 3. 准备图表数据 (解决 FieldError：改用 created_at)
     days = []
     task_counts = []
     now = timezone.now()
@@ -71,7 +74,7 @@ def goal_list_view(request):
         count = SubTask.objects.filter(
             goal__user=request.user,
             is_completed=True,
-            updated_at__date=date
+            created_at__date=date
         ).count()
         task_counts.append(count)
 
@@ -79,8 +82,9 @@ def goal_list_view(request):
         'goals': goals,
         'stats': {
             'total': total_count,
-            'completed': completed_count,
-            'active': in_progress_count,
+            'completed': completed_real_count,
+            'active': active_display_count,
+            'archived_count': archived_count, # 供归档按钮旁的数字使用
             'weekly': weekly_subtasks
         },
         'chart_data_json': json.dumps({'labels': days, 'values': task_counts})
@@ -171,11 +175,11 @@ def subtask_delete_ajax(request, task_id):
         'progress_percentage': goal.progress
     })
 
-# 1. 归档列表视图
+# --- 3. 归档实验室 ---
+
 @login_required
 def archived_goals_view(request):
     """显示所有已归档的目标"""
-    # 将 -updated_at 改为 -created_at
     archived_goals = LearningGoal.objects.filter(
         user=request.user, 
         is_archived=True
@@ -185,7 +189,6 @@ def archived_goals_view(request):
         'goals': archived_goals
     })
 
-# 2. 恢复目标视图 (AJAX)
 @login_required
 @require_POST
 def goal_restore_ajax(request, pk):

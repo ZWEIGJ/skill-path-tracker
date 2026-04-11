@@ -158,10 +158,10 @@
             
             <div class="mt-3">
                 <a href="{% url 'archived_goals' %}" class="archive-link">
-                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <svg width="14" height="14" fill="currentColor" class="me-1" viewBox="0 0 16 16" style="vertical-align: middle; margin-top: -2px;">
                         <path d="M12.643 15C13.979 15 15 13.845 15 12.5V5H1V12.5C1 13.845 2.021 15 3.357 15zM5.5 7h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1M.8 1a.8.8 0 0 0-.8.8V3a.8.8 0 0 0 .8.8h14.4A.8.8 0 0 0 16 3V1.8a.8.8 0 0 0-.8-.8z"/>
                     </svg>
-                    查看归档实验室 ({{ stats.completed }})
+                    查看归档实验室 ({{ stats.archived_count }})
                 </a>
             </div>
         </div>

@@ -124,13 +124,14 @@
 <div class="notion-container" 
      id="goal-config" 
      data-goal-id="{{ goal.id }}"
+     data-is-archived="{{ goal.is_archived|yesno:'true,false' }}"
      data-add-url="{% url 'subtask_add' goal.id %}"
      data-archive-url="{% url 'goal_archive_ajax' goal.id %}"
      data-csrf="{{ csrf_token }}">
 
     <a href="{% url 'goal_list' %}" class="text-muted text-decoration-none small mb-4 d-block">← 返回所有目标</a>
 
-    <div id="archive-section" class="alert alert-success border-0 shadow-sm mb-4 {% if progress_percentage < 100 %}d-none{% endif %}" style="background-color: #eafaf1;">
+    <div id="archive-section" class="alert alert-success border-0 shadow-sm mb-4 {% if progress_percentage < 100 or goal.is_archived %}d-none{% endif %}" style="background-color: #eafaf1;">
         <div class="d-flex justify-content-between align-items-center">
             <span style="color: #1a7f37; font-weight: 500;">🎊 恭喜！该目标已全部达成，是否将其归档？</span>
             <button onclick="archiveGoal()" class="btn btn-success btn-sm px-3">归档目标</button>
@@ -178,7 +179,8 @@
 
     <input type="text" class="new-task-input" id="quick-add-input" 
            placeholder="+ 输入子任务，按回车快速添加..." 
-           onkeypress="if(event.keyCode==13) addTask()">
+           onkeypress="if(event.keyCode==13) addTask()"
+           {% if goal.is_archived %}style="display:none;"{% endif %}>
 </div>
 
 <script>
@@ -188,7 +190,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         const progressBar = document.getElementById('main-progress');
         const initialPercent = progressBar.getAttribute('data-percent');
-        // 在 JS 中设置初始宽度，避开 CSS 校验报错
         progressBar.style.width = initialPercent + '%';
     });
 
@@ -198,7 +199,8 @@
         document.getElementById('progress-percent-text').innerText = percent + '%';
 
         const archiveBox = document.getElementById('archive-section');
-        if (percent === 100) {
+        // 只有当“未归档”状态时，100% 进度才触发提示框和彩蛋
+        if (percent === 100 && config.isArchived === 'false') {
             archiveBox.classList.remove('d-none');
             fireCelebration();
         } else {
@@ -253,8 +255,13 @@
     }
 
     function toggleTask(taskId) {
+        // 修正路径：确保与 urls.py 匹配，建议使用更健壮的拼接方式
         fetch(`/subtask/toggle/${taskId}/`, {
-            headers: {'X-Requested-With': 'XMLHttpRequest'}
+            method: 'POST', // 配合 require_POST 装饰器
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': config.csrf
+            }
         })
         .then(res => res.json())
         .then(data => {
@@ -267,7 +274,11 @@
     function deleteTask(taskId) {
         if (!confirm('确定删除该任务吗？')) return;
         fetch(`/subtask/delete/${taskId}/`, {
-            headers: {'X-Requested-With': 'XMLHttpRequest'}
+            method: 'POST', // 配合 require_POST
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': config.csrf
+            }
         })
         .then(res => res.json())
         .then(data => {
