@@ -12,18 +12,44 @@
             --notion-hover: #f1f1ef;
             --notion-border: #edece9;
             --notion-blue: #5297ff;
+            --notion-red: #eb5757;
         }
 
         body {
             background-color: var(--notion-bg);
             color: var(--notion-text);
-            font-family: -apple-system, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             padding-top: 50px;
         }
 
         .notion-container { max-width: 720px; margin: 0 auto; padding: 0 20px; }
         .goal-header { margin-bottom: 40px; }
-        .goal-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; }
+        
+        /* 优先级标签 */
+        .badge-priority {
+            font-size: 0.75rem;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .priority-h { background-color: #ffe2e2; color: #eb5757; }
+        .priority-m { background-color: #fff4e2; color: #ff9900; }
+        .priority-l { background-color: #e2f5ff; color: #5297ff; }
+
+        /* 详情页时间标签 */
+        .date-tag-detail {
+            font-size: 0.9rem;
+            color: #787774;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .overdue-status {
+            color: var(--notion-red) !important;
+            font-weight: 700;
+        }
+
+        .goal-title { font-size: 2.5rem; font-weight: 700; margin-top: 10px; margin-bottom: 10px; }
         .goal-desc { color: #787774; font-size: 1.1rem; margin-bottom: 20px; }
 
         /* 进度条样式 */
@@ -103,8 +129,22 @@
     <a href="{% url 'goal_list' %}" class="text-muted text-decoration-none small mb-4 d-block">← 返回所有目标</a>
 
     <div class="goal-header">
+        <div class="d-flex align-items-center gap-3 mb-2">
+            <span class="badge-priority priority-{{ goal.priority|lower }}">
+                {{ goal.get_priority_display }}优先级
+            </span>
+            {% if goal.deadline %}
+            <span class="date-tag-detail {% if goal.is_overdue %}overdue-status{% endif %}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2M1 3.857C1 3.384 1.448 3 2 3h12c.552 0 1 .384 1 .857v10.286c0 .473-.448.857-1 .857H2c-.552 0-1-.384-1-.857z"/>
+                </svg>
+                {% if goal.is_overdue %}已过期 ({{ goal.deadline }}){% else %}截止日期：{{ goal.deadline }}{% endif %}
+            </span>
+            {% endif %}
+        </div>
+
         <h1 class="goal-title">{{ goal.title }}</h1>
-        <p class="goal-desc">{{ goal.description|default:"点击添加描述..." }}</p>
+        <p class="goal-desc">{{ goal.description|default:"点击编辑按钮添加更多细节描述..." }}</p>
         
         <div class="progress-info">
             <span class="text-muted">完成进度</span>
@@ -135,11 +175,8 @@
 <script>
     const config = document.getElementById('goal-config').dataset;
 
-    // 联动更新：进度条 + 百分比文字
     function updateProgressBar(percent) {
-        // 更新条
         document.getElementById('main-progress').style.width = percent + '%';
-        // 更新字
         const textElement = document.getElementById('progress-percent-text');
         if (textElement) {
             textElement.innerText = percent + '%';
