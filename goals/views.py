@@ -5,18 +5,52 @@ from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
-from django.contrib import messages  # 修复 Pylance 报错的关键导入
+from django.contrib import messages
+from django.db.models import Case, When, IntegerField, Q, BooleanField, F, Count
+from django.utils import timezone
+
 from .models import LearningGoal, SubTask
+from .forms import LearningGoalForm
 
 # --- 1. 大目标管理 (页面级) ---
 
 @login_required
 def goal_list_view(request):
-    """首页：显示所有大目标的卡片"""
-    goals = LearningGoal.objects.filter(user=request.user)
-    return render(request, 'goals/goal_list.html', {
-        'goals': goals,
-    })
+    """首页：显示大目标（逻辑：未过期 > 优先级 > 截止日期）"""
+    now_date = timezone.now().date()
+    
+    # 使用 annotate 预先计算子任务统计信息，用于沉底判断
+    goals = LearningGoal.objects.filter(user=request.user).annotate(
+        total_tasks=Count('subtasks'),
+        completed_tasks=Count('subtasks', filter=Q(subtasks__is_completed=True)),
+        
+        # 核心沉底逻辑：
+        # 判定条件：日期早于今天 AND (没有任务 OR 已完成任务数 < 总任务数)
+        is_overdue_sort=Case(
+            When(
+                Q(deadline__lt=now_date) & 
+                (Q(total_tasks=0) | Q(completed_tasks__lt=F('total_tasks'))), 
+                then=True
+            ),
+            default=False,
+            output_field=BooleanField()
+        ),
+        
+        # 优先级权重分：高(3) > 中(2) > 低(1)
+        priority_weight=Case(
+            When(priority='H', then=3),
+            When(priority='M', then=2),
+            When(priority='L', then=1),
+            default=0,
+            output_field=IntegerField(),
+        )
+    ).order_by(
+        'is_overdue_sort',    # 1. 未过期的在前 (False/0 < True/1)
+        '-priority_weight',   # 2. 权重分高的在前
+        'deadline'            # 3. 日期近的在前
+    )
+
+    return render(request, 'goals/goal_list.html', {'goals': goals})
 
 @login_required
 def goal_detail_view(request, pk):
@@ -31,9 +65,9 @@ def goal_detail_view(request, pk):
     })
 
 class GoalCreateView(LoginRequiredMixin, CreateView):
+    """创建目标视图"""
     model = LearningGoal
-    # 加上新字段：'deadline', 'priority'
-    fields = ['title', 'description', 'deadline', 'priority'] 
+    form_class = LearningGoalForm
     template_name = 'goals/goal_form.html'
     success_url = reverse_lazy('goal_list')
 
@@ -72,7 +106,6 @@ def subtask_add_ajax(request, goal_id):
 @login_required
 def subtask_toggle_ajax(request, task_id):
     """异步切换子任务状态"""
-    # 注意参数名改为了 task_id，与 urls.py 保持一致
     subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
     subtask.is_completed = not subtask.is_completed
     subtask.save()

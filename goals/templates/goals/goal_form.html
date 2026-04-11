@@ -43,19 +43,25 @@
             font-weight: 600;
             font-size: 0.9rem;
             color: #787774;
+            margin-bottom: 8px;
+            display: block;
         }
 
-        .form-control {
-            border: 1px solid var(--notion-border);
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 20px;
+        /* 统一 Django 自动生成的 input 和 select 样式 */
+        .form-control, select, textarea {
+            border: 1px solid var(--notion-border) !important;
+            border-radius: 8px !important;
+            padding: 12px !important;
+            margin-bottom: 20px !important;
             transition: border-color 0.2s;
+            width: 100%;
+            display: block;
+            background-color: #fff;
         }
 
-        .form-control:focus {
-            border-color: var(--notion-focus);
-            box-shadow: 0 0 0 3px rgba(82, 151, 255, 0.1);
+        .form-control:focus, select:focus, textarea:focus {
+            border-color: var(--notion-focus) !important;
+            box-shadow: 0 0 0 3px rgba(82, 151, 255, 0.1) !important;
             outline: none;
         }
 
@@ -68,6 +74,7 @@
             font-weight: 600;
             width: 100%;
             transition: opacity 0.2s;
+            margin-top: 10px;
         }
 
         .btn-save:hover {
@@ -93,28 +100,33 @@
 
     <div class="form-container">
         <h2>🎯 开启新征程</h2>
-            <form method="post">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label>目标名称</label>
-                    {{ form.title }}
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-1">
+                <label class="form-label">目标名称</label>
+                {{ form.title }}
+            </div>
+            
+            <div class="mb-1">
+                <label class="form-label">目标描述</label>
+                {{ form.description }}
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-1">
+                    <label class="form-label">截止日期</label>
+                    <input type="date" name="deadline" class="form-control" value="{{ form.deadline.value|default:'' }}">
                 </div>
-                <div class="mb-3">
-                    <label>目标描述</label>
-                    {{ form.description }}
+                <div class="col-md-6 mb-1">
+                    <label class="form-label">优先级</label>
+                    {{ form.priority }}
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label>截止日期</label>
-                        <input type="date" name="deadline" class="form-control" value="{{ form.deadline.value|default:'' }}">
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label>优先级</label>
-                        {{ form.priority }}
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary">确认开启</button>
-            </form>
+            </div>
+
+            <button type="submit" class="btn-save">确认开启</button>
+            <a href="{% url 'goal_list' %}" class="btn-back">返回我的库</a>
+        </form>
     </div>
 
 </body>
