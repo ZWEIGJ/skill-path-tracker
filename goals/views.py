@@ -170,3 +170,27 @@ def subtask_delete_ajax(request, task_id):
         'status': 'success',
         'progress_percentage': goal.progress
     })
+
+# 1. 归档列表视图
+@login_required
+def archived_goals_view(request):
+    """显示所有已归档的目标"""
+    # 将 -updated_at 改为 -created_at
+    archived_goals = LearningGoal.objects.filter(
+        user=request.user, 
+        is_archived=True
+    ).order_by('-created_at') 
+    
+    return render(request, 'goals/archived_list.html', {
+        'goals': archived_goals
+    })
+
+# 2. 恢复目标视图 (AJAX)
+@login_required
+@require_POST
+def goal_restore_ajax(request, pk):
+    """将目标从归档状态恢复到激活状态"""
+    goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
+    goal.is_archived = False
+    goal.save()
+    return JsonResponse({'status': 'success'})

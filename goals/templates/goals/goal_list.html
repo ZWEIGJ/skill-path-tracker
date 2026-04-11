@@ -126,6 +126,20 @@
         .add-goal-btn:hover { background-color: var(--notion-hover); border-color: var(--notion-blue); color: var(--notion-blue); }
 
         .nav-actions { position: absolute; top: 20px; right: 20px; }
+
+        /* 归档链接样式 */
+        .archive-link {
+            color: #acaba9;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .archive-link:hover {
+            color: var(--notion-blue);
+        }
     </style>
 </head>
 <body>
@@ -138,9 +152,18 @@
     </div>
 
     <div class="notion-container">
-        <div class="header-section text-center">
+        <div class="header-section text-center mb-5">
             <h1 class="display-5 fw-bold mb-2">🎯 目标工作坊</h1>
             <p class="text-muted">数据驱动成长，规划成就未来。</p>
+            
+            <div class="mt-3">
+                <a href="{% url 'archived_goals' %}" class="archive-link">
+                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M12.643 15C13.979 15 15 13.845 15 12.5V5H1V12.5C1 13.845 2.021 15 3.357 15zM5.5 7h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1 0-1M.8 1a.8.8 0 0 0-.8.8V3a.8.8 0 0 0 .8.8h14.4A.8.8 0 0 0 16 3V1.8a.8.8 0 0 0-.8-.8z"/>
+                    </svg>
+                    查看归档实验室 ({{ stats.completed }})
+                </a>
+            </div>
         </div>
 
         <div class="row g-3 mb-4">
@@ -218,7 +241,7 @@
 
                     <form action="{% url 'goal_delete' goal.pk %}" method="post" 
                           style="position: absolute; top: 20px; right: 20px; z-index: 20;"
-                          onsubmit="return confirm('确定要删除吗？');">
+                          onsubmit="return confirm('确定要彻底删除该目标吗？');">
                         {% csrf_token %}
                         <button type="submit" class="delete-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -230,7 +253,7 @@
             </div>
             {% empty %}
             <div class="col-12 text-center py-5">
-                <p class="text-muted">还没有目标？点击下方开启新挑战！</p>
+                <p class="text-muted">目前没有进行中的目标。快去开启新挑战，或者去<a href="{% url 'archived_goals' %}">归档实验室</a>看看？</p>
             </div>
             {% endfor %}
 
@@ -246,14 +269,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // 1. 进度条动画
+            // 1. 进度条动画逻辑 (修复了内联 CSS 报错隐患)
             const bars = document.querySelectorAll('.js-progress-bar');
             bars.forEach(bar => {
                 const progress = bar.getAttribute('data-progress');
+                // 延迟执行以确保浏览器能触发动画
                 setTimeout(() => { bar.style.width = progress + '%'; }, 100);
             });
 
             // 2. 初始化趋势图表
+            // 使用 safe 过滤器确保 JSON 数据正确解析
             const chartData = JSON.parse('{{ chart_data_json|safe }}');
             const ctx = document.getElementById('growthChart').getContext('2d');
             
