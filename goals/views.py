@@ -94,7 +94,8 @@ def goal_list_view(request):
 def goal_detail_view(request, pk):
     """详情页：展示特定目标的所有子任务"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
-    subtasks = goal.subtasks.all().order_by('created_at')
+    # 修改排序逻辑：未完成在前，完成后在后；同状态下按创建时间先后排
+    subtasks = goal.subtasks.all().order_by('is_completed', 'created_at')
     
     return render(request, 'goals/goal_detail.html', {
         'goal': goal,

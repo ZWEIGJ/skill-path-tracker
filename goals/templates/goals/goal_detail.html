@@ -71,6 +71,7 @@
             display: flex;
             align-items: center;
             padding: 10px 0;
+            transition: all 0.3s ease; /* 增加移动和状态切换的过渡效果 */
         }
 
         .task-checkbox {
@@ -87,6 +88,7 @@
             width: 100%;
             outline: none;
             font-size: 1.05rem;
+            word-break: break-all; /* 防止长文本破坏布局 */
         }
 
         .task-text.completed {
@@ -199,7 +201,6 @@
         document.getElementById('progress-percent-text').innerText = percent + '%';
 
         const archiveBox = document.getElementById('archive-section');
-        // 只有当“未归档”状态时，100% 进度才触发提示框和彩蛋
         if (percent === 100 && config.isArchived === 'false') {
             archiveBox.classList.remove('d-none');
             fireCelebration();
@@ -247,7 +248,8 @@
                         <span class="task-text">${data.task_title}</span>
                         <button class="hover-show" onclick="deleteTask('${data.task_id}')">×</button>
                     </div>`;
-                document.getElementById('subtask-list').insertAdjacentHTML('beforeend', html);
+                // 新任务默认添加到列表最上方（未完成区域）
+                document.getElementById('subtask-list').insertAdjacentHTML('afterbegin', html);
                 input.value = '';
                 updateUI(data.progress_percentage);
             }
@@ -255,9 +257,8 @@
     }
 
     function toggleTask(taskId) {
-        // 修正路径：确保与 urls.py 匹配，建议使用更健壮的拼接方式
         fetch(`/subtask/toggle/${taskId}/`, {
-            method: 'POST', // 配合 require_POST 装饰器
+            method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRFToken': config.csrf
@@ -265,8 +266,19 @@
         })
         .then(res => res.json())
         .then(data => {
-            const text = document.querySelector(`#task-${taskId} .task-text`);
-            data.is_completed ? text.classList.add('completed') : text.classList.remove('completed');
+            const taskItem = document.getElementById(`task-${taskId}`);
+            const text = taskItem.querySelector('.task-text');
+            const container = document.getElementById('subtask-list');
+
+            if (data.is_completed) {
+                // 打钩：添加样式并沉底
+                text.classList.add('completed');
+                container.appendChild(taskItem);
+            } else {
+                // 取消打钩：移除样式并置顶
+                text.classList.remove('completed');
+                container.prepend(taskItem);
+            }
             updateUI(data.progress_percentage);
         });
     }
@@ -274,7 +286,7 @@
     function deleteTask(taskId) {
         if (!confirm('确定删除该任务吗？')) return;
         fetch(`/subtask/delete/${taskId}/`, {
-            method: 'POST', // 配合 require_POST
+            method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRFToken': config.csrf
