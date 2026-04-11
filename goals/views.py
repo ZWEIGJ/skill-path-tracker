@@ -1,3 +1,4 @@
+import json # 顶部增加导入
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 from django.views.generic.edit import CreateView
@@ -8,6 +9,7 @@ from django.http import JsonResponse
 from django.contrib import messages
 from django.db.models import Case, When, IntegerField, Q, BooleanField, F, Count
 from django.utils import timezone
+from datetime import timedelta
 
 from .models import LearningGoal, SubTask
 from .forms import LearningGoalForm
@@ -64,6 +66,30 @@ def goal_list_view(request):
         'deadline'            # 日期近的在前
     )
 
+# --- Step 6.2：准备图表数据 ---
+    days = []
+    task_counts = []
+    now = timezone.now()
+
+    for i in range(6, -1, -1): # 获取过去 7 天
+        date = (now - timedelta(days=i)).date()
+        days.append(date.strftime('%m-%d')) # 格式化日期如 "04-11"
+        
+        # 统计当天完成的子任务数量
+        count = SubTask.objects.filter(
+            goal__user=request.user,
+            is_completed=True,
+            updated_at__date=date
+        ).count()
+        task_counts.append(count)
+
+    # 转换成 JSON 格式供前端 JS 调用
+    chart_data = {
+        'labels': days,
+        'values': task_counts,
+    }
+
+    # 修改返回的 context
     return render(request, 'goals/goal_list.html', {
         'goals': goals,
         'stats': {
@@ -71,7 +97,8 @@ def goal_list_view(request):
             'completed': completed_count,
             'active': in_progress_count,
             'weekly': weekly_subtasks
-        }
+        },
+        'chart_data_json': json.dumps(chart_data) # 新增这一行
     })
 
 @login_required

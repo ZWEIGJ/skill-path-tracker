@@ -31,13 +31,14 @@
             padding: 0 20px;
         }
 
-        /* --- Step 6.1 新增：统计卡片样式 --- */
+        /* 统计卡片样式 */
         .stat-card {
             border: 1px solid var(--notion-border);
             border-radius: 12px;
             padding: 16px;
             background-color: #fff;
             transition: box-shadow 0.2s;
+            height: 100%;
         }
         .stat-card:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -55,8 +56,7 @@
             margin-top: 4px;
         }
 
-        .header-section { margin-bottom: 40px; }
-
+        /* 目标卡片样式 */
         .goal-card {
             border: 1px solid var(--notion-border);
             border-radius: 12px;
@@ -70,18 +70,10 @@
             position: relative;
             background: white;
         }
-
         .goal-card:hover {
             background-color: var(--notion-hover);
             transform: translateY(-4px);
             box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-        }
-
-        .card-header-flex {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
         }
 
         .goal-title {
@@ -107,86 +99,33 @@
             align-items: center;
             gap: 4px;
         }
-        .overdue-text {
-            color: var(--notion-red) !important;
-            font-weight: 700;
-        }
+        .overdue-text { color: var(--notion-red) !important; font-weight: 700; }
 
         .delete-btn {
-            background: none;
-            border: none;
-            color: #acaba9;
-            padding: 4px;
-            border-radius: 4px;
-            transition: all 0.2s;
-            line-height: 0;
-            z-index: 10;
+            background: none; border: none; color: #acaba9;
+            padding: 4px; border-radius: 4px; transition: all 0.2s;
+            line-height: 0; z-index: 10;
         }
-        .delete-btn:hover {
-            background-color: #ffe7e7;
-            color: var(--notion-red);
-        }
+        .delete-btn:hover { background-color: #ffe7e7; color: var(--notion-red); }
 
         .goal-desc {
-            font-size: 0.9rem;
-            color: #787774;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            height: 2.7em;
-            overflow: hidden;
-            
-            /* 重点修复这里 */
-            display: -webkit-box;
-            -webkit-line-clamp: 2; /* 兼容旧版 WebKit */
-            line-clamp: 2;         /* 标准属性：解决你的警告 */
+            font-size: 0.9rem; color: #787774; margin-top: 10px; margin-bottom: 20px;
+            height: 2.7em; overflow: hidden;
+            display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
             -webkit-box-orient: vertical;
         }
 
-        .progress-container { margin-top: auto; }
-        .progress-text {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-bottom: 6px;
-        }
-        .progress-bar-bg {
-            height: 6px;
-            background-color: #edece9;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-        .progress-bar-fill {
-            height: 100%;
-            background-color: var(--notion-blue);
-            width: 0%;
-            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .progress-bar-bg { height: 6px; background-color: #edece9; border-radius: 3px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background-color: var(--notion-blue); width: 0%; transition: width 0.8s ease; }
 
         .add-goal-btn {
-            border: 2px dashed var(--notion-border);
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            min-height: 200px;
-            color: #acaba9;
-            text-decoration: none;
-            transition: all 0.2s;
+            border: 2px dashed var(--notion-border); border-radius: 12px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100%; min-height: 200px; color: #acaba9; text-decoration: none; transition: all 0.2s;
         }
-        .add-goal-btn:hover {
-            background-color: var(--notion-hover);
-            border-color: var(--notion-blue);
-            color: var(--notion-blue);
-        }
+        .add-goal-btn:hover { background-color: var(--notion-hover); border-color: var(--notion-blue); color: var(--notion-blue); }
 
-        .nav-actions {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-        }
+        .nav-actions { position: absolute; top: 20px; right: 20px; }
     </style>
 </head>
 <body>
@@ -201,10 +140,10 @@
     <div class="notion-container">
         <div class="header-section text-center">
             <h1 class="display-5 fw-bold mb-2">🎯 目标工作坊</h1>
-            <p class="text-muted">在这里，所有的伟大都从一个大目标开始。</p>
+            <p class="text-muted">数据驱动成长，规划成就未来。</p>
         </div>
 
-        <div class="row g-3 mb-5">
+        <div class="row g-3 mb-4">
             <div class="col-6 col-md-3">
                 <div class="stat-card">
                     <div class="stat-label">总目标</div>
@@ -213,7 +152,7 @@
             </div>
             <div class="col-6 col-md-3">
                 <div class="stat-card">
-                    <div class="stat-label">正在进行</div>
+                    <div class="stat-label">进行中</div>
                     <div class="stat-value text-primary">{{ stats.active }}</div>
                 </div>
             </div>
@@ -231,14 +170,23 @@
             </div>
         </div>
 
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="stat-card">
+                    <div class="stat-label mb-3">最近 7 天任务达成趋势</div>
+                    <div style="height: 220px; width: 100%;">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row g-4">
             {% for goal in goals %}
             <div class="col-md-6 col-lg-4">
                 <div class="position-relative h-100">
                     <a href="{% url 'goal_detail' goal.pk %}" class="goal-card">
-                        <div class="card-header-flex">
-                            <div class="goal-title text-truncate">{{ goal.title }}</div>
-                        </div>
+                        <div class="goal-title text-truncate mb-2">{{ goal.title }}</div>
                         
                         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                             <span class="badge-priority priority-{{ goal.priority|lower }}">
@@ -250,17 +198,15 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                                     <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"/>
                                 </svg>
-                                <span>
-                                    {% if goal.is_overdue_sort %}已过期{% else %}{{ goal.deadline|date:"m-d" }}{% endif %}
-                                </span>
+                                <span>{% if goal.is_overdue_sort %}已过期{% else %}{{ goal.deadline|date:"m-d" }}{% endif %}</span>
                             </div>
                             {% endif %}
                         </div>
                         
                         <div class="goal-desc">{{ goal.description|default:"暂无描述..." }}</div>
                         
-                        <div class="progress-container">
-                            <div class="progress-text">
+                        <div class="mt-auto">
+                            <div class="d-flex justify-content-between mb-1 small fw-bold">
                                 <span>完成度</span>
                                 <span>{{ goal.progress }}%</span>
                             </div>
@@ -272,12 +218,11 @@
 
                     <form action="{% url 'goal_delete' goal.pk %}" method="post" 
                           style="position: absolute; top: 20px; right: 20px; z-index: 20;"
-                          onsubmit="return confirm('确定要删除这个大目标及其所有子任务吗？');">
+                          onsubmit="return confirm('确定要删除吗？');">
                         {% csrf_token %}
-                        <button type="submit" class="delete-btn" title="删除目标">
+                        <button type="submit" class="delete-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0zM14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
                             </svg>
                         </button>
                     </form>
@@ -285,7 +230,7 @@
             </div>
             {% empty %}
             <div class="col-12 text-center py-5">
-                <p class="text-muted">还没有目标？点击右侧或下方开启新挑战！</p>
+                <p class="text-muted">还没有目标？点击下方开启新挑战！</p>
             </div>
             {% endfor %}
 
@@ -298,15 +243,55 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // 进度条动画
+            // 1. 进度条动画
             const bars = document.querySelectorAll('.js-progress-bar');
             bars.forEach(bar => {
                 const progress = bar.getAttribute('data-progress');
-                setTimeout(() => {
-                    bar.style.width = progress + '%';
-                }, 100);
+                setTimeout(() => { bar.style.width = progress + '%'; }, 100);
+            });
+
+            // 2. 初始化趋势图表
+            const chartData = JSON.parse('{{ chart_data_json|safe }}');
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: '完成任务数',
+                        data: chartData.values,
+                        borderColor: '#5297ff',
+                        backgroundColor: 'rgba(82, 151, 255, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#5297ff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1, color: '#acaba9' },
+                            grid: { color: '#f1f1ef' }
+                        },
+                        x: {
+                            ticks: { color: '#acaba9' },
+                            grid: { display: false }
+                        }
+                    }
+                }
             });
         });
     </script>
