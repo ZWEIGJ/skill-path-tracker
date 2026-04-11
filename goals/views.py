@@ -1,4 +1,5 @@
 import json
+import re
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 from django.views.generic.edit import CreateView
@@ -11,7 +12,8 @@ from django.db.models import Case, When, IntegerField, Q, BooleanField, F, Count
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import LearningGoal, SubTask
+# 确保导入了正确的模型和表单
+from .models import LearningGoal, SubTask, Tag 
 from .forms import LearningGoalForm
 
 # --- 1. 大目标管理 ---
@@ -21,19 +23,13 @@ def goal_list_view(request):
     """首页：显示大目标列表、统计看板及图表数据"""
     now_date = timezone.now().date()
     
-    # 获取当前用户的所有目标
     user_goals = LearningGoal.objects.filter(user=request.user)
     
-    # 1. 顶部数据统计逻辑修正
     total_count = user_goals.count()
-    # 已达成：指进到 100% 的目标（无论是否归档）
     completed_real_count = sum(1 for g in user_goals if g.progress >= 100)
-    # 进行中：指当前页面显示的目标（未归档的目标）
     active_display_count = user_goals.filter(is_archived=False).count()
-    # 归档数：真正进入实验室的数量（用于前端显示数字）
     archived_count = user_goals.filter(is_archived=True).count()
     
-    # 本周完成的子任务总数（解决 FieldError：暂时改用 created_at，除非你去 models 加了 updated_at）
     last_7_days = timezone.now() - timedelta(days=7)
     weekly_subtasks = SubTask.objects.filter(
         goal__user=request.user, 
@@ -41,8 +37,8 @@ def goal_list_view(request):
         created_at__gte=last_7_days 
     ).count()
 
-    # 2. 列表显示：只显示未归档的目标
-    goals = user_goals.filter(is_archived=False).annotate(
+    # 列表显示：prefetch_related 确保标签能被一次性查出
+    goals = user_goals.filter(is_archived=False).prefetch_related('tags').annotate(
         total_tasks=Count('subtasks'),
         completed_tasks_count=Count('subtasks', filter=Q(subtasks__is_completed=True)),
         
@@ -64,7 +60,7 @@ def goal_list_view(request):
         )
     ).order_by('is_overdue_sort', '-priority_weight', 'deadline')
 
-    # 3. 准备图表数据 (解决 FieldError：改用 created_at)
+    # 准备图表数据
     days = []
     task_counts = []
     now = timezone.now()
@@ -84,7 +80,7 @@ def goal_list_view(request):
             'total': total_count,
             'completed': completed_real_count,
             'active': active_display_count,
-            'archived_count': archived_count, # 供归档按钮旁的数字使用
+            'archived_count': archived_count,
             'weekly': weekly_subtasks
         },
         'chart_data_json': json.dumps({'labels': days, 'values': task_counts})
@@ -92,9 +88,12 @@ def goal_list_view(request):
 
 @login_required
 def goal_detail_view(request, pk):
-    """详情页：展示特定目标的所有子任务"""
-    goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
-    # 修改排序逻辑：未完成在前，完成后在后；同状态下按创建时间先后排
+    """详情页：展示特定目标的所有子任务，并预加载标签"""
+    goal = get_object_or_404(
+        LearningGoal.objects.prefetch_related('tags'), 
+        pk=pk, 
+        user=request.user
+    )
     subtasks = goal.subtasks.all().order_by('is_completed', 'created_at')
     
     return render(request, 'goals/goal_detail.html', {
@@ -104,15 +103,40 @@ def goal_detail_view(request, pk):
     })
 
 class GoalCreateView(LoginRequiredMixin, CreateView):
-    """新建目标页面"""
+    """新建目标页面：手动处理多对多关联以避免 AttributeErrors"""
     model = LearningGoal
     form_class = LearningGoalForm
     template_name = 'goals/goal_form.html'
     success_url = reverse_lazy('goal_list')
 
     def form_valid(self, form):
+        # 1. 绑定当前用户
         form.instance.user = self.request.user
-        return super().form_valid(form)
+        
+        # 2. 先调用父类的保存逻辑，这会创建 self.object (目标实例)
+        # 注意：这里我们不再依赖 form.save_m2m()
+        response = super().form_valid(form)
+        
+        # 3. 获取并解析标签数据
+        # 优先拿隐藏域 tags_data，其次拿普通输入框 tags
+        tags_raw = self.request.POST.get('tags_data') or self.request.POST.get('tags') or ""
+        
+        if tags_raw:
+            # 使用正则支持：中文逗号、英文逗号、空格、回车作为分隔符
+            tag_names = re.split(r'[，,\s\n]+', tags_raw)
+            # 去重且过滤空字符串
+            tag_names = list(set([name.strip() for name in tag_names if name.strip()]))
+            
+            for name in tag_names:
+                # get_or_create 确保标签唯一，models 中已设置默认颜色
+                tag_obj, created = Tag.objects.get_or_create(
+                    name=name,
+                    user=self.request.user
+                )
+                # 直接手动添加到多对多关联中
+                self.object.tags.add(tag_obj)
+        
+        return response
 
 @login_required
 @require_POST
@@ -152,6 +176,7 @@ def subtask_add_ajax(request, goal_id):
     return JsonResponse({'status': 'error', 'message': '标题不能为空'}, status=400)
 
 @login_required
+@require_POST
 def subtask_toggle_ajax(request, task_id):
     """切换子任务状态 (AJAX)"""
     subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
@@ -165,6 +190,7 @@ def subtask_toggle_ajax(request, task_id):
     })
 
 @login_required
+@require_POST
 def subtask_delete_ajax(request, task_id):
     """删除子任务 (AJAX)"""
     subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
@@ -180,11 +206,11 @@ def subtask_delete_ajax(request, task_id):
 
 @login_required
 def archived_goals_view(request):
-    """显示所有已归档的目标"""
+    """显示所有已归档的目标，预加载标签以解决“未分类”问题"""
     archived_goals = LearningGoal.objects.filter(
         user=request.user, 
         is_archived=True
-    ).order_by('-created_at') 
+    ).prefetch_related('tags').order_by('-created_at') 
     
     return render(request, 'goals/archived_list.html', {
         'goals': archived_goals
