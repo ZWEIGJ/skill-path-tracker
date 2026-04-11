@@ -93,23 +93,28 @@
 
     <div class="form-container">
         <h2>🎯 开启新征程</h2>
-        
-        <form method="post">
-            {% csrf_token %}
-            
-            <div class="mb-3">
-                <label for="id_title" class="form-label">大目标名称</label>
-                <input type="text" name="title" id="id_title" class="form-control" placeholder="例如：掌握 Django 开发" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="id_description" class="form-label">目标描述（可选）</label>
-                <textarea name="description" id="id_description" class="form-control" rows="4" placeholder="写下这个目标的背景或最终期望的状态..."></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-save">保存并开始拆解</button>
-            <a href="{% url 'goal_list' %}" class="btn-back">返回列表</a>
-        </form>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label>目标名称</label>
+                    {{ form.title }}
+                </div>
+                <div class="mb-3">
+                    <label>目标描述</label>
+                    {{ form.description }}
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>截止日期</label>
+                        <input type="date" name="deadline" class="form-control" value="{{ form.deadline.value|default:'' }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>优先级</label>
+                        {{ form.priority }}
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">确认开启</button>
+            </form>
     </div>
 
 </body>

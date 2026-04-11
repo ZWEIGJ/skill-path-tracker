@@ -31,9 +31,9 @@ def goal_detail_view(request, pk):
     })
 
 class GoalCreateView(LoginRequiredMixin, CreateView):
-    """创建大目标的独立页面"""
     model = LearningGoal
-    fields = ['title', 'description']
+    # 加上新字段：'deadline', 'priority'
+    fields = ['title', 'description', 'deadline', 'priority'] 
     template_name = 'goals/goal_form.html'
     success_url = reverse_lazy('goal_list')
 
