@@ -65,6 +65,7 @@ class SubTask(models.Model):
     title = models.CharField(max_length=200)
     is_completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True) # 用于统计完成时间
 
     def __str__(self):
         return f"{self.goal.title} - {self.title}"
