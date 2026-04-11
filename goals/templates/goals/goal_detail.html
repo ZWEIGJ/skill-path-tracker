@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ goal.title }} - 详情</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root {
             --notion-bg: #ffffff;
@@ -20,12 +21,12 @@
             color: var(--notion-text);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             padding-top: 50px;
+            padding-bottom: 100px;
         }
 
         .notion-container { max-width: 720px; margin: 0 auto; padding: 0 20px; }
         .goal-header { margin-bottom: 40px; }
         
-        /* 优先级标签 */
         .badge-priority {
             font-size: 0.75rem;
             padding: 3px 10px;
@@ -36,7 +37,6 @@
         .priority-m { background-color: #fff4e2; color: #ff9900; }
         .priority-l { background-color: #e2f5ff; color: #5297ff; }
 
-        /* 详情页时间标签 */
         .date-tag-detail {
             font-size: 0.9rem;
             color: #787774;
@@ -52,11 +52,10 @@
         .goal-title { font-size: 2.5rem; font-weight: 700; margin-top: 10px; margin-bottom: 10px; }
         .goal-desc { color: #787774; font-size: 1.1rem; margin-bottom: 20px; }
 
-        /* 进度条样式 */
         .progress-bar-container { height: 6px; background: var(--notion-border); border-radius: 3px; margin-bottom: 30px; }
         .progress-fill { 
             height: 100%; background: var(--notion-blue); width: 0%; 
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+            transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); 
         }
 
         .progress-info {
@@ -71,17 +70,15 @@
         .task-item {
             display: flex;
             align-items: center;
-            padding: 8px 0;
-            position: relative;
+            padding: 10px 0;
         }
-
-        .task-item:hover .hover-show { opacity: 1; }
 
         .task-checkbox {
             width: 18px;
             height: 18px;
             margin-right: 12px;
             cursor: pointer;
+            accent-color: var(--notion-blue);
         }
 
         .task-text {
@@ -89,7 +86,7 @@
             background: transparent;
             width: 100%;
             outline: none;
-            font-size: 1rem;
+            font-size: 1.05rem;
         }
 
         .task-text.completed {
@@ -99,23 +96,27 @@
 
         .new-task-input {
             border: none;
-            padding: 8px 0;
+            padding: 12px 0;
             width: 100%;
             outline: none;
+            font-size: 1.05rem;
             color: var(--notion-text);
-            margin-top: 10px;
+            border-bottom: 1px solid transparent;
         }
+        .new-task-input:focus { border-color: var(--notion-border); }
 
         .hover-show {
             opacity: 0;
             transition: opacity 0.2s;
             background: none;
             border: none;
-            color: #eb5757;
+            color: #acaba9;
             cursor: pointer;
             font-size: 1.2rem;
-            line-height: 1;
+            padding: 0 10px;
         }
+        .task-item:hover .hover-show { opacity: 1; }
+        .hover-show:hover { color: var(--notion-red); }
     </style>
 </head>
 <body>
@@ -124,9 +125,17 @@
      id="goal-config" 
      data-goal-id="{{ goal.id }}"
      data-add-url="{% url 'subtask_add' goal.id %}"
+     data-archive-url="{% url 'goal_archive_ajax' goal.id %}"
      data-csrf="{{ csrf_token }}">
 
     <a href="{% url 'goal_list' %}" class="text-muted text-decoration-none small mb-4 d-block">← 返回所有目标</a>
+
+    <div id="archive-section" class="alert alert-success border-0 shadow-sm mb-4 {% if progress_percentage < 100 %}d-none{% endif %}" style="background-color: #eafaf1;">
+        <div class="d-flex justify-content-between align-items-center">
+            <span style="color: #1a7f37; font-weight: 500;">🎊 恭喜！该目标已全部达成，是否将其归档？</span>
+            <button onclick="archiveGoal()" class="btn btn-success btn-sm px-3">归档目标</button>
+        </div>
+    </div>
 
     <div class="goal-header">
         <div class="d-flex align-items-center gap-3 mb-2">
@@ -135,7 +144,7 @@
             </span>
             {% if goal.deadline %}
             <span class="date-tag-detail {% if goal.is_overdue %}overdue-status{% endif %}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2M1 3.857C1 3.384 1.448 3 2 3h12c.552 0 1 .384 1 .857v10.286c0 .473-.448.857-1 .857H2c-.552 0-1-.384-1-.857z"/>
                 </svg>
                 {% if goal.is_overdue %}已过期 ({{ goal.deadline }}){% else %}截止日期：{{ goal.deadline }}{% endif %}
@@ -144,10 +153,10 @@
         </div>
 
         <h1 class="goal-title">{{ goal.title }}</h1>
-        <p class="goal-desc">{{ goal.description|default:"点击编辑按钮添加更多细节描述..." }}</p>
+        <p class="goal-desc">{{ goal.description|default:"暂无详细描述" }}</p>
         
         <div class="progress-info">
-            <span class="text-muted">完成进度</span>
+            <span class="text-muted small">PROGRESS</span>
             <span id="progress-percent-text" class="text-primary">{{ progress_percentage }}%</span>
         </div>
         <div class="progress-bar-container">
@@ -168,25 +177,50 @@
     </div>
 
     <input type="text" class="new-task-input" id="quick-add-input" 
-           placeholder="+ 输入拆分工作点，按回车添加..." 
+           placeholder="+ 输入子任务，按回车快速添加..." 
            onkeypress="if(event.keyCode==13) addTask()">
 </div>
 
 <script>
     const config = document.getElementById('goal-config').dataset;
 
-    function updateProgressBar(percent) {
+    // --- 页面初始化逻辑 ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const progressBar = document.getElementById('main-progress');
+        const initialPercent = progressBar.getAttribute('data-percent');
+        // 在 JS 中设置初始宽度，避开 CSS 校验报错
+        progressBar.style.width = initialPercent + '%';
+    });
+
+    // UI 状态同步
+    function updateUI(percent) {
         document.getElementById('main-progress').style.width = percent + '%';
-        const textElement = document.getElementById('progress-percent-text');
-        if (textElement) {
-            textElement.innerText = percent + '%';
+        document.getElementById('progress-percent-text').innerText = percent + '%';
+
+        const archiveBox = document.getElementById('archive-section');
+        if (percent === 100) {
+            archiveBox.classList.remove('d-none');
+            fireCelebration();
+        } else {
+            archiveBox.classList.add('d-none');
         }
     }
 
-    window.onload = () => {
-        const initialPercent = document.getElementById('main-progress').dataset.percent;
-        updateProgressBar(initialPercent);
-    };
+    // 喷射纸屑特效
+    function fireCelebration() {
+        const count = 200;
+        const defaults = { origin: { y: 0.7 }, zIndex: 1000 };
+        function fire(particleRatio, opts) {
+            confetti(Object.assign({}, defaults, opts, {
+                particleCount: Math.floor(count * particleRatio)
+            }));
+        }
+        fire(0.25, { spread: 26, startVelocity: 55 });
+        fire(0.2, { spread: 60 });
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+        fire(0.1, { spread: 120, startVelocity: 45 });
+    }
 
     function addTask() {
         const input = document.getElementById('quick-add-input');
@@ -213,7 +247,7 @@
                     </div>`;
                 document.getElementById('subtask-list').insertAdjacentHTML('beforeend', html);
                 input.value = '';
-                updateProgressBar(data.progress_percentage);
+                updateUI(data.progress_percentage);
             }
         });
     }
@@ -226,19 +260,35 @@
         .then(data => {
             const text = document.querySelector(`#task-${taskId} .task-text`);
             data.is_completed ? text.classList.add('completed') : text.classList.remove('completed');
-            updateProgressBar(data.progress_percentage);
+            updateUI(data.progress_percentage);
         });
     }
 
     function deleteTask(taskId) {
-        if (!confirm('确定要删除这个任务吗？')) return;
+        if (!confirm('确定删除该任务吗？')) return;
         fetch(`/subtask/delete/${taskId}/`, {
             headers: {'X-Requested-With': 'XMLHttpRequest'}
         })
         .then(res => res.json())
         .then(data => {
             document.getElementById(`task-${taskId}`).remove();
-            updateProgressBar(data.progress_percentage);
+            updateUI(data.progress_percentage);
+        });
+    }
+
+    function archiveGoal() {
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', config.csrf);
+        fetch(config.archiveUrl, {
+            method: 'POST',
+            body: formData,
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.href = "{% url 'goal_list' %}";
+            }
         });
     }
 </script>

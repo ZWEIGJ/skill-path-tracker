@@ -1,4 +1,4 @@
-import json # 顶部增加导入
+import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 from django.views.generic.edit import CreateView
@@ -14,34 +14,35 @@ from datetime import timedelta
 from .models import LearningGoal, SubTask
 from .forms import LearningGoalForm
 
-# --- 1. 大目标管理 (页面级) ---
+# --- 1. 大目标管理 ---
 
 @login_required
 def goal_list_view(request):
-    """首页：显示大目标 + 统计数据（逻辑：未过期 > 优先级 > 截止日期）"""
+    """首页：显示大目标列表、统计看板及图表数据"""
     now_date = timezone.now().date()
     
-    # 1. 统计逻辑：计算顶部的四个数字
-    all_goals = LearningGoal.objects.filter(user=request.user)
-    total_count = all_goals.count()
-    # 使用列表推导式计算进度（对应你的模型 @property）
-    completed_count = sum(1 for g in all_goals if g.progress >= 100)
-    in_progress_count = sum(1 for g in all_goals if 0 < g.progress < 100)
+    # 获取当前用户的所有目标（用于全局统计）
+    user_goals = LearningGoal.objects.filter(user=request.user)
     
-    # 本周完成的子任务数
-    last_7_days = timezone.now() - timezone.timedelta(days=7)
+    # 1. 顶部数据统计
+    total_count = user_goals.count()
+    completed_count = sum(1 for g in user_goals if g.progress >= 100)
+    in_progress_count = sum(1 for g in user_goals if 0 < g.progress < 100)
+    
+    # 本周完成的子任务总数（用于“本周突破”卡片）
+    last_7_days = timezone.now() - timedelta(days=7)
     weekly_subtasks = SubTask.objects.filter(
         goal__user=request.user, 
         is_completed=True, 
         updated_at__gte=last_7_days
     ).count()
 
-    # 2. 排序逻辑：annotate 必须写在 order_by 之前
-    goals = all_goals.annotate(
+    # 2. 列表显示：只显示未归档的目标，并进行复杂排序
+    goals = user_goals.filter(is_archived=False).annotate(
         total_tasks=Count('subtasks'),
         completed_tasks_count=Count('subtasks', filter=Q(subtasks__is_completed=True)),
         
-        # 过期沉底逻辑
+        # 排序逻辑：未过期 > 高优先级 > 截止日期
         is_overdue_sort=Case(
             When(
                 Q(deadline__lt=now_date) & 
@@ -51,8 +52,6 @@ def goal_list_view(request):
             default=False,
             output_field=BooleanField()
         ),
-        
-        # 优先级权重
         priority_weight=Case(
             When(priority='H', then=3),
             When(priority='M', then=2),
@@ -60,22 +59,15 @@ def goal_list_view(request):
             default=0,
             output_field=IntegerField(),
         )
-    ).order_by(
-        'is_overdue_sort',    # 未过期的在前
-        '-priority_weight',   # 高优先级在前
-        'deadline'            # 日期近的在前
-    )
+    ).order_by('is_overdue_sort', '-priority_weight', 'deadline')
 
-# --- Step 6.2：准备图表数据 ---
+    # 3. 准备 Chart.js 所需的 7 天数据
     days = []
     task_counts = []
     now = timezone.now()
-
-    for i in range(6, -1, -1): # 获取过去 7 天
+    for i in range(6, -1, -1):
         date = (now - timedelta(days=i)).date()
-        days.append(date.strftime('%m-%d')) # 格式化日期如 "04-11"
-        
-        # 统计当天完成的子任务数量
+        days.append(date.strftime('%m-%d'))
         count = SubTask.objects.filter(
             goal__user=request.user,
             is_completed=True,
@@ -83,13 +75,6 @@ def goal_list_view(request):
         ).count()
         task_counts.append(count)
 
-    # 转换成 JSON 格式供前端 JS 调用
-    chart_data = {
-        'labels': days,
-        'values': task_counts,
-    }
-
-    # 修改返回的 context
     return render(request, 'goals/goal_list.html', {
         'goals': goals,
         'stats': {
@@ -98,12 +83,12 @@ def goal_list_view(request):
             'active': in_progress_count,
             'weekly': weekly_subtasks
         },
-        'chart_data_json': json.dumps(chart_data) # 新增这一行
+        'chart_data_json': json.dumps({'labels': days, 'values': task_counts})
     })
 
 @login_required
 def goal_detail_view(request, pk):
-    """详情页：补回了之前失踪的视图函数"""
+    """详情页：展示特定目标的所有子任务"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     subtasks = goal.subtasks.all().order_by('created_at')
     
@@ -114,6 +99,7 @@ def goal_detail_view(request, pk):
     })
 
 class GoalCreateView(LoginRequiredMixin, CreateView):
+    """新建目标页面"""
     model = LearningGoal
     form_class = LearningGoalForm
     template_name = 'goals/goal_form.html'
@@ -126,31 +112,43 @@ class GoalCreateView(LoginRequiredMixin, CreateView):
 @login_required
 @require_POST
 def goal_delete_view(request, pk):
+    """删除目标逻辑"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     goal.delete()
     messages.success(request, "目标及其所有关联任务已成功移除。")
     return redirect('goal_list')
 
+@login_required
+@require_POST
+def goal_archive_ajax(request, pk):
+    """归档目标逻辑 (AJAX)"""
+    goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
+    goal.is_archived = True
+    goal.save()
+    return JsonResponse({'status': 'success'})
+
 
 # --- 2. 子任务管理 (AJAX 接口) ---
 
 @login_required
+@require_POST
 def subtask_add_ajax(request, goal_id):
-    if request.method == 'POST':
-        goal = get_object_or_404(LearningGoal, pk=goal_id, user=request.user)
-        title = request.POST.get('title', '').strip()
-        if title:
-            subtask = SubTask.objects.create(goal=goal, title=title)
-            return JsonResponse({
-                'status': 'success',
-                'task_id': subtask.id,
-                'task_title': subtask.title,
-                'progress_percentage': goal.progress
-            })
-    return JsonResponse({'status': 'error'}, status=400)
+    """添加子任务 (AJAX)"""
+    goal = get_object_or_404(LearningGoal, pk=goal_id, user=request.user)
+    title = request.POST.get('title', '').strip()
+    if title:
+        subtask = SubTask.objects.create(goal=goal, title=title)
+        return JsonResponse({
+            'status': 'success',
+            'task_id': subtask.id,
+            'task_title': subtask.title,
+            'progress_percentage': goal.progress
+        })
+    return JsonResponse({'status': 'error', 'message': '标题不能为空'}, status=400)
 
 @login_required
 def subtask_toggle_ajax(request, task_id):
+    """切换子任务状态 (AJAX)"""
     subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
     subtask.is_completed = not subtask.is_completed
     subtask.save()
@@ -163,6 +161,7 @@ def subtask_toggle_ajax(request, task_id):
 
 @login_required
 def subtask_delete_ajax(request, task_id):
+    """删除子任务 (AJAX)"""
     subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
     goal = subtask.goal
     subtask.delete()

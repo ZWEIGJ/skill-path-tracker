@@ -5,7 +5,7 @@ from django.utils import timezone
 class LearningGoal(models.Model):
     """
     大目标模型：
-    核心变更：增加了优先级和截止日期字段，并提供了动态属性判断进度和是否逾期。
+    核心功能：支持优先级排序、截止日期、动态进度计算、逾期判定以及归档管理。
     """
     # 优先级选项定义
     class Priority(models.TextChoices):
@@ -13,22 +13,28 @@ class LearningGoal(models.Model):
         MEDIUM = 'M', '中'
         HIGH = 'H', '高'
 
+    # 基础字段
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=200, verbose_name="目标标题")
+    description = models.TextField(blank=True, null=True, verbose_name="目标描述")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     
-    # --- Step 5.1 新增字段 ---
-    deadline = models.DateField(null=True, blank=True) # 截止日期
+    # 扩展字段 (Step 5.1 & 6.3)
+    deadline = models.DateField(null=True, blank=True, verbose_name="截止日期")
     priority = models.CharField(
         max_length=1,
         choices=Priority.choices,
-        default=Priority.MEDIUM, # 默认中等
+        default=Priority.MEDIUM,
+        verbose_name="优先级"
     )
+    is_archived = models.BooleanField(default=False, verbose_name="是否归档")
 
     @property
     def progress(self):
-        """核心逻辑：动态计算子任务完成百分比"""
+        """
+        核心逻辑：动态计算子任务完成百分比。
+        不需要存储到数据库，每次访问时实时根据子任务状态计算。
+        """
         tasks = self.subtasks.all()
         total = tasks.count()
         if total == 0:
@@ -40,9 +46,7 @@ class LearningGoal(models.Model):
     def is_overdue(self):
         """
         判断是否逾期：
-        1. 必须设置了截止日期
-        2. 截止日期早于今天
-        3. 进度未达到 100%
+        条件：设置了日期、日期已过、且进度未满 100%。
         """
         if self.deadline and self.deadline < timezone.now().date() and self.progress < 100:
             return True
@@ -50,6 +54,10 @@ class LearningGoal(models.Model):
 
     def __str__(self):
         return self.title
+
+    class Meta:
+        verbose_name = "学习目标"
+        verbose_name_plural = "学习目标"
 
 
 class SubTask(models.Model):
@@ -62,10 +70,14 @@ class SubTask(models.Model):
         on_delete=models.CASCADE, 
         related_name='subtasks'
     )
-    title = models.CharField(max_length=200)
-    is_completed = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True) # 用于统计完成时间
+    title = models.CharField(max_length=200, verbose_name="任务内容")
+    is_completed = models.BooleanField(default=False, verbose_name="是否完成")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间") # 用于趋势图统计
 
     def __str__(self):
         return f"{self.goal.title} - {self.title}"
+
+    class Meta:
+        verbose_name = "子任务"
+        verbose_name_plural = "子任务"
