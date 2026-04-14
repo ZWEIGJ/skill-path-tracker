@@ -25,113 +25,78 @@
         }
 
         .notion-container { max-width: 720px; margin: 0 auto; padding: 0 20px; }
-        .goal-header { margin-bottom: 40px; }
+        .goal-header { margin-bottom: 40px; position: relative; }
         
-        .badge-priority {
-            font-size: 0.75rem;
-            padding: 3px 10px;
+        /* 就地编辑通用样式 */
+        .editable-field {
+            transition: background 0.2s;
             border-radius: 4px;
-            font-weight: 600;
+            padding: 2px 4px;
+            margin-left: -4px;
         }
+        .editable-field:hover {
+            background-color: var(--notion-hover);
+            cursor: pointer;
+        }
+        .editable-field:focus {
+            outline: none;
+            background-color: transparent;
+            box-shadow: inset 0 0 0 1px var(--notion-border);
+        }
+
+        .goal-title { font-size: 2.5rem; font-weight: 700; margin-top: 10px; margin-bottom: 10px; width: 100%; border: none; }
+        .goal-desc { color: #787774; font-size: 1.1rem; margin-bottom: 20px; white-space: pre-wrap; min-height: 1.5em; border: none; }
+        .goal-desc:empty::before { content: "点击添加描述..."; color: #acaba9; }
+
+        /* 标签编辑器 */
+        .tag-editor-input {
+            border: none;
+            background: var(--notion-hover);
+            outline: none;
+            font-size: 0.85rem;
+            border-radius: 4px;
+            padding: 2px 8px;
+            width: 100%;
+        }
+
+        .badge-priority { font-size: 0.75rem; padding: 3px 10px; border-radius: 4px; font-weight: 600; }
         .priority-h { background-color: #ffe2e2; color: #eb5757; }
         .priority-m { background-color: #fff4e2; color: #ff9900; }
         .priority-l { background-color: #e2f5ff; color: #5297ff; }
 
-        .date-tag-detail {
+        /* 日期选择器特殊样式 */
+        .date-container {
             font-size: 0.9rem;
             color: #787774;
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            position: relative;
         }
-        .overdue-status {
-            color: var(--notion-red) !important;
-            font-weight: 700;
-        }
-
-        /* 标签样式 */
-        .custom-tag-detail {
-            font-size: 0.85rem;
-            background-color: #f1f1ef;
-            color: #37352f;
-            border: 1px solid var(--notion-border);
-            padding: 2px 10px;
-            border-radius: 4px;
-            display: inline-flex;
-            align-items: center;
-            font-weight: 500;
+        #deadline-picker {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            left: 0;
+            top: 0;
         }
 
-        .goal-title { font-size: 2.5rem; font-weight: 700; margin-top: 10px; margin-bottom: 10px; }
-        .goal-desc { color: #787774; font-size: 1.1rem; margin-bottom: 20px; }
+        .custom-tag-detail { font-size: 0.85rem; background-color: #f1f1ef; color: #37352f; border: 1px solid var(--notion-border); padding: 2px 10px; border-radius: 4px; display: inline-flex; align-items: center; font-weight: 500; }
 
         .progress-bar-container { height: 6px; background: var(--notion-border); border-radius: 3px; margin-bottom: 30px; }
-        .progress-fill { 
-            height: 100%; background: var(--notion-blue); width: 0%; 
-            transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); 
-        }
+        .progress-fill { height: 100%; background: var(--notion-blue); width: 0%; transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .progress-info { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; }
 
-        .progress-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
+        .task-item { display: flex; align-items: center; padding: 10px 0; }
+        .task-checkbox { width: 18px; height: 18px; margin-right: 12px; cursor: pointer; accent-color: var(--notion-blue); }
+        .task-text { border: none; background: transparent; width: 100%; outline: none; font-size: 1.05rem; word-break: break-all; }
+        .task-text.completed { text-decoration: line-through; color: #acaba9; }
 
-        .task-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 0;
-            transition: all 0.3s ease;
-        }
-
-        .task-checkbox {
-            width: 18px;
-            height: 18px;
-            margin-right: 12px;
-            cursor: pointer;
-            accent-color: var(--notion-blue);
-        }
-
-        .task-text {
-            border: none;
-            background: transparent;
-            width: 100%;
-            outline: none;
-            font-size: 1.05rem;
-            word-break: break-all;
-        }
-
-        .task-text.completed {
-            text-decoration: line-through;
-            color: #acaba9;
-        }
-
-        .new-task-input {
-            border: none;
-            padding: 12px 0;
-            width: 100%;
-            outline: none;
-            font-size: 1.05rem;
-            color: var(--notion-text);
-            border-bottom: 1px solid transparent;
-        }
-        .new-task-input:focus { border-color: var(--notion-border); }
-
-        .hover-show {
-            opacity: 0;
-            transition: opacity 0.2s;
-            background: none;
-            border: none;
-            color: #acaba9;
-            cursor: pointer;
-            font-size: 1.2rem;
-            padding: 0 10px;
-        }
+        .new-task-input { border: none; padding: 12px 0; width: 100%; outline: none; font-size: 1.05rem; color: var(--notion-text); }
+        .hover-show { opacity: 0; transition: opacity 0.2s; background: none; border: none; color: #acaba9; cursor: pointer; font-size: 1.2rem; padding: 0 10px; }
         .task-item:hover .hover-show { opacity: 1; }
-        .hover-show:hover { color: var(--notion-red); }
     </style>
 </head>
 <body>
@@ -142,14 +107,15 @@
      data-is-archived="{{ goal.is_archived|yesno:'true,false' }}"
      data-add-url="{% url 'subtask_add' goal.id %}"
      data-archive-url="{% url 'goal_archive_ajax' goal.id %}"
+     data-update-url="{% url 'goal_update_ajax' goal.id %}"
      data-csrf="{{ csrf_token }}">
 
     <a href="{% url 'goal_list' %}" class="text-muted text-decoration-none small mb-4 d-block">← 返回所有目标</a>
 
     <div id="archive-section" class="alert alert-success border-0 shadow-sm mb-4 {% if progress_percentage < 100 or goal.is_archived %}d-none{% endif %}" style="background-color: #eafaf1;">
         <div class="d-flex justify-content-between align-items-center">
-            <span style="color: #1a7f37; font-weight: 500;">🎊 恭喜！该目标已全部达成，是否将其归档？</span>
-            <button onclick="archiveGoal()" class="btn btn-success btn-sm px-3">归档目标</button>
+            <span style="color: #1a7f37; font-weight: 500;">🎊 目标已达成，是否将其归档？</span>
+            <button onclick="archiveGoal()" class="btn btn-success btn-sm px-3">归档</button>
         </div>
     </div>
 
@@ -158,29 +124,40 @@
             <span class="badge-priority priority-{{ goal.priority|lower }}">
                 {{ goal.get_priority_display }}优先级
             </span>
-            {% if goal.deadline %}
-            <span class="date-tag-detail {% if goal.is_overdue %}overdue-status{% endif %}">
-                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: middle; margin-top: -2px;">
-                    <path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2M1 3.857C1 3.384 1.448 3 2 3h12c.552 0 1 .384 1 .857v10.286c0 .473-.448.857-1 .857H2c-.552 0-1-.384-1-.857z"/>
-                </svg>
-                {% if goal.is_overdue %}已过期 ({{ goal.deadline }}){% else %}截止日期：{{ goal.deadline }}{% endif %}
-            </span>
-            {% endif %}
+            
+            <div class="date-container editable-field" id="deadline-box">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M14 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2M1 3.857C1 3.384 1.448 3 2 3h12c.552 0 1 .384 1 .857v10.286c0 .473-.448.857-1 .857H2c-.552 0-1-.384-1-.857z"/></svg>
+                <span id="deadline-display">{% if goal.deadline %}截止：{{ goal.deadline|date:"Y-m-d" }}{% else %}设置截止日期{% endif %}</span>
+                <input type="date" id="deadline-picker" value="{{ goal.deadline|date:'Y-m-d' }}" onchange="updateGoalField('deadline', this.value)">
+            </div>
         </div>
 
-        <h1 class="goal-title">{{ goal.title }}</h1>
+        <h1 class="goal-title editable-field" 
+            contenteditable="true" 
+            onblur="updateGoalField('title', this.innerText)"
+            onkeydown="if(event.keyCode==13){event.preventDefault(); this.blur();}">
+            {{ goal.title }}
+        </h1>
 
-        <div class="d-flex flex-wrap gap-2 mb-3">
-            {% for tag in goal.tags.all %}
-            <span class="custom-tag-detail">
-                <span style="opacity: 0.4; margin-right: 3px;">#</span>{{ tag.name }}
-            </span>
-            {% endfor %}
+        <div class="mb-3">
+            <div id="tag-display" class="d-flex flex-wrap gap-2 editable-field" onclick="showTagEditor()">
+                {% for tag in goal.tags.all %}
+                <span class="custom-tag-detail"># {{ tag.name }}</span>
+                {% empty %}
+                <span class="text-muted small">+ 添加标签</span>
+                {% endfor %}
+            </div>
+            <input type="text" id="tag-input" class="tag-editor-input d-none" 
+                   placeholder="用空格或逗号分隔标签..."
+                   value="{{ initial_tags }}" 
+                   onblur="updateGoalField('tags', this.value)">
         </div>
 
-        <p class="goal-desc">{{ goal.description|default:"暂无详细描述" }}</p>
+        <div class="goal-desc editable-field" 
+             contenteditable="true" 
+             onblur="updateGoalField('description', this.innerText)">{{ goal.description|default:"" }}</div>
         
-        <div class="progress-info">
+        <div class="progress-info mt-4">
             <span class="text-muted small">PROGRESS</span>
             <span id="progress-percent-text" class="text-primary">{{ progress_percentage }}%</span>
         </div>
@@ -192,9 +169,7 @@
     <div id="subtask-list">
         {% for task in subtasks %}
         <div class="task-item" id="task-{{ task.id }}">
-            <input type="checkbox" class="task-checkbox" 
-                   {% if task.is_completed %}checked{% endif %}
-                   onchange="toggleTask('{{ task.id }}')">
+            <input type="checkbox" class="task-checkbox" {% if task.is_completed %}checked{% endif %} onchange="toggleTask('{{ task.id }}')">
             <span class="task-text {% if task.is_completed %}completed{% endif %}">{{ task.title }}</span>
             <button class="hover-show" onclick="deleteTask('{{ task.id }}')">×</button>
         </div>
@@ -202,64 +177,79 @@
     </div>
 
     <input type="text" class="new-task-input" id="quick-add-input" 
-           placeholder="+ 输入子任务，按回车快速添加..." 
-           onkeypress="if(event.keyCode==13) addTask()"
-           {% if goal.is_archived %}style="display:none;"{% endif %}>
+            placeholder="+ 输入子任务，按回车快速添加..." 
+            onkeypress="if(event.keyCode==13) addTask()"
+            {% if goal.is_archived %}style="display:none;"{% endif %}>
 </div>
 
 <script>
     const config = document.getElementById('goal-config').dataset;
 
+    // 通用就地编辑保存函数
+    function updateGoalField(field, value) {
+        const formData = new FormData();
+        formData.append('field', field);
+        formData.append('value', value);
+        formData.append('csrfmiddlewaretoken', config.csrf);
+
+        fetch(config.updateUrl, {
+            method: 'POST',
+            body: formData,
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (field === 'tags') {
+                    document.getElementById('tag-display').innerHTML = data.tags_html || '<span class="text-muted small">+ 添加标签</span>';
+                    document.getElementById('tag-display').classList.remove('d-none');
+                    document.getElementById('tag-input').classList.add('d-none');
+                } else if (field === 'deadline') {
+                    document.getElementById('deadline-display').innerText = value ? '截止：' + value : '设置截止日期';
+                    // 绿色闪烁反馈
+                    const box = document.getElementById('deadline-box');
+                    box.style.color = 'var(--notion-blue)';
+                    setTimeout(() => box.style.color = '', 800);
+                }
+            }
+        });
+    }
+
+    function showTagEditor() {
+        document.getElementById('tag-display').classList.add('d-none');
+        const input = document.getElementById('tag-input');
+        input.classList.remove('d-none');
+        input.focus();
+    }
+
+    // 进度条初始化
     document.addEventListener('DOMContentLoaded', () => {
         const progressBar = document.getElementById('main-progress');
-        const initialPercent = progressBar.getAttribute('data-percent');
-        setTimeout(() => {
-            progressBar.style.width = initialPercent + '%';
-        }, 100);
+        progressBar.style.width = progressBar.getAttribute('data-percent') + '%';
     });
 
+    // 进度 UI 更新
     function updateUI(percent) {
         document.getElementById('main-progress').style.width = percent + '%';
         document.getElementById('progress-percent-text').innerText = percent + '%';
-
         const archiveBox = document.getElementById('archive-section');
         if (percent === 100 && config.isArchived === 'false') {
             archiveBox.classList.remove('d-none');
-            fireCelebration();
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
         } else {
             archiveBox.classList.add('d-none');
         }
     }
 
-    function fireCelebration() {
-        const count = 200;
-        const defaults = { origin: { y: 0.7 }, zIndex: 1000 };
-        function fire(particleRatio, opts) {
-            confetti(Object.assign({}, defaults, opts, {
-                particleCount: Math.floor(count * particleRatio)
-            }));
-        }
-        fire(0.25, { spread: 26, startVelocity: 55 });
-        fire(0.2, { spread: 60 });
-        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
-        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
-        fire(0.1, { spread: 120, startVelocity: 45 });
-    }
-
+    // 子任务操作
     function addTask() {
         const input = document.getElementById('quick-add-input');
         const title = input.value.trim();
         if (!title) return;
-
         const formData = new FormData();
         formData.append('title', title);
         formData.append('csrfmiddlewaretoken', config.csrf);
-
-        fetch(config.addUrl, {
-            method: 'POST',
-            body: formData,
-            headers: {'X-Requested-With': 'XMLHttpRequest'}
-        })
+        fetch(config.addUrl, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
         .then(res => res.json())
         .then(data => {
             if (data.status === 'success') {
@@ -277,38 +267,30 @@
     }
 
     function toggleTask(taskId) {
-        fetch(`/subtask/toggle/${taskId}/`, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': config.csrf
-            }
+        fetch(`/subtask/toggle/${taskId}/`, { 
+            method: 'POST', 
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': config.csrf } 
         })
         .then(res => res.json())
         .then(data => {
             const taskItem = document.getElementById(`task-${taskId}`);
             const text = taskItem.querySelector('.task-text');
-            const container = document.getElementById('subtask-list');
-
             if (data.is_completed) {
                 text.classList.add('completed');
-                container.appendChild(taskItem);
+                document.getElementById('subtask-list').appendChild(taskItem);
             } else {
                 text.classList.remove('completed');
-                container.prepend(taskItem);
+                document.getElementById('subtask-list').prepend(taskItem);
             }
             updateUI(data.progress_percentage);
         });
     }
 
     function deleteTask(taskId) {
-        if (!confirm('确定删除该任务吗？')) return;
-        fetch(`/subtask/delete/${taskId}/`, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': config.csrf
-            }
+        if (!confirm('确定删除？')) return;
+        fetch(`/subtask/delete/${taskId}/`, { 
+            method: 'POST', 
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': config.csrf } 
         })
         .then(res => res.json())
         .then(data => {
@@ -320,16 +302,9 @@
     function archiveGoal() {
         const formData = new FormData();
         formData.append('csrfmiddlewaretoken', config.csrf);
-        fetch(config.archiveUrl, {
-            method: 'POST',
-            body: formData,
-            headers: {'X-Requested-With': 'XMLHttpRequest'}
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                window.location.href = "{% url 'goal_list' %}";
-            }
+        fetch(config.archiveUrl, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} })
+        .then(res => res.json()).then(data => { 
+            if (data.status === 'success') window.location.href = "{% url 'goal_list' %}"; 
         });
     }
 </script>

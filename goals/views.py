@@ -16,13 +16,32 @@ from datetime import timedelta
 from .models import LearningGoal, SubTask, Tag 
 from .forms import LearningGoalForm
 
+# --- 辅助工具函数 ---
+
+def _process_tags(user, goal, tags_raw):
+    """提取字符串中的标签并关联到目标"""
+    if tags_raw is None:
+        return
+    # 支持中文逗号、英文逗号、空格、换行拆分
+    tag_names = re.split(r'[，,\s\n]+', str(tags_raw))
+    tag_names = list(set([name.strip() for name in tag_names if name.strip()]))
+    
+    # 清除旧标签
+    goal.tags.clear()
+    
+    for name in tag_names:
+        tag_obj, created = Tag.objects.get_or_create(
+            name=name,
+            user=user
+        )
+        goal.tags.add(tag_obj)
+
 # --- 1. 大目标管理 ---
 
 @login_required
 def goal_list_view(request):
-    """首页：显示大目标列表、统计看板及图表数据"""
+    """首页：显示大目标列表及统计数据"""
     now_date = timezone.now().date()
-    
     user_goals = LearningGoal.objects.filter(user=request.user)
     
     total_count = user_goals.count()
@@ -37,11 +56,9 @@ def goal_list_view(request):
         created_at__gte=last_7_days 
     ).count()
 
-    # 列表显示：prefetch_related 确保标签能被一次性查出
     goals = user_goals.filter(is_archived=False).prefetch_related('tags').annotate(
         total_tasks=Count('subtasks'),
         completed_tasks_count=Count('subtasks', filter=Q(subtasks__is_completed=True)),
-        
         is_overdue_sort=Case(
             When(
                 Q(deadline__lt=now_date) & 
@@ -60,7 +77,6 @@ def goal_list_view(request):
         )
     ).order_by('is_overdue_sort', '-priority_weight', 'deadline')
 
-    # 准备主页趋势图数据
     days = []
     task_counts = []
     now = timezone.now()
@@ -88,19 +104,43 @@ def goal_list_view(request):
 
 @login_required
 def goal_detail_view(request, pk):
-    """详情页：展示特定目标的所有子任务"""
+    """详情页：展示目标及其子任务"""
     goal = get_object_or_404(
         LearningGoal.objects.prefetch_related('tags'), 
         pk=pk, 
         user=request.user
     )
     subtasks = goal.subtasks.all().order_by('is_completed', 'created_at')
+    initial_tags_str = ", ".join(tag.name for tag in goal.tags.all())
     
     return render(request, 'goals/goal_detail.html', {
         'goal': goal,
         'subtasks': subtasks,
+        'initial_tags': initial_tags_str,
         'progress_percentage': goal.progress 
     })
+
+@login_required
+@require_POST
+def goal_update_ajax(request, pk):
+    goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
+    field = request.POST.get('field')
+    value = request.POST.get('value', '').strip()
+
+    if field == 'title':
+        goal.title = value
+    elif field == 'description':
+        goal.description = value
+    elif field == 'deadline': # 新增：处理日期更新
+        goal.deadline = value if value else None
+    elif field == 'tags':
+        _process_tags(request.user, goal, value)
+        tags_html = "".join([f'<span class="custom-tag-detail"># {tag.name}</span>' for tag in goal.tags.all()])
+        goal.save()
+        return JsonResponse({'status': 'success', 'tags_html': tags_html})
+    
+    goal.save()
+    return JsonResponse({'status': 'success'})
 
 class GoalCreateView(LoginRequiredMixin, CreateView):
     """新建目标页面"""
@@ -112,17 +152,8 @@ class GoalCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         form.instance.user = self.request.user
         response = super().form_valid(form)
-        
         tags_raw = self.request.POST.get('tags_data') or self.request.POST.get('tags') or ""
-        if tags_raw:
-            tag_names = re.split(r'[，,\s\n]+', tags_raw)
-            tag_names = list(set([name.strip() for name in tag_names if name.strip()]))
-            for name in tag_names:
-                tag_obj, created = Tag.objects.get_or_create(
-                    name=name,
-                    user=self.request.user
-                )
-                self.object.tags.add(tag_obj)
+        _process_tags(self.request.user, self.object, tags_raw)
         return response
 
 # --- 2. AJAX 接口 (任务与归档) ---
@@ -181,34 +212,24 @@ def subtask_delete_ajax(request, task_id):
         'progress_percentage': goal.progress
     })
 
-# --- 3. 归档实验室 (增强版) ---
-
-# --- 3. 归档实验室 (修复版) ---
+# --- 3. 归档实验室 ---
 
 @login_required
 def archived_goals_view(request):
-    """显示已归档目标，包含环形图分布统计"""
-    # 1. 基础查询
+    """已归档列表"""
     archived_goals = LearningGoal.objects.filter(
         user=request.user, 
         is_archived=True
     ).prefetch_related('tags').order_by('-created_at')
 
-    # 2. 环形图数据：将 learninggoal 替换为 goals (根据报错提示的 choices)
     tag_counts = Tag.objects.filter(
-        goals__user=request.user,     # 这里改为 goals__user
-        goals__is_archived=True       # 这里改为 goals__is_archived
-    ).annotate(num_goals=Count('goals')).order_by('-num_goals') # 这里改为 Count('goals')
+        goals__user=request.user,
+        goals__is_archived=True
+    ).annotate(num_goals=Count('goals')).order_by('-num_goals')
 
-    chart_labels = [tag.name for tag in tag_counts]
-    chart_values = [tag.num_goals for tag in tag_counts]
+    chart_labels = [tag.name for tag in tag_counts] or ["暂无数据"]
+    chart_values = [tag.num_goals for tag in tag_counts] or [0]
 
-    # 如果没有任何带标签的归档，给个默认提示数据
-    if not chart_labels:
-        chart_labels = ["暂无数据"]
-        chart_values = [0]
-
-    # 3. 本周完成统计
     last_7_days = timezone.now() - timedelta(days=7)
     weekly_archived_count = archived_goals.filter(created_at__gte=last_7_days).count()
 
