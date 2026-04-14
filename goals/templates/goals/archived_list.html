@@ -6,11 +6,16 @@
     <title>归档实验室 - SkillPath</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { background-color: #f8f9fa; color: #37352f; }
         .nav-link-custom { color: #6c757d; text-decoration: none; margin-left: 15px; font-size: 0.9rem; transition: 0.2s; }
         .nav-link-custom:hover { color: #0d6efd; }
-        .container-main { max-width: 800px; margin-top: 40px; }
+        .container-main { max-width: 900px; margin-top: 30px; }
+        
+        /* 统计卡片样式 */
+        .stat-card { background: white; border-radius: 16px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        
         .archive-card {
             background: white;
             border-radius: 12px;
@@ -20,6 +25,9 @@
         .archive-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .text-finished { text-decoration: line-through; color: #acaba9; }
         .avatar-nav { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; border: 1px solid #eee; }
+        
+        /* 列表容器微调 */
+        .goal-list-container { max-width: 800px; margin: 0 auto; }
     </style>
 </head>
 <body>
@@ -42,43 +50,81 @@
 </nav>
 
 <div class="container container-main pb-5">
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h2 class="fw-bold">📁 归档实验室</h2>
-            <p class="text-muted small">这里记录了你过去获得的所有成就。</p>
-        </div>
-        <a href="{% url 'goal_list' %}" class="btn btn-outline-dark btn-sm px-3 shadow-sm">返回工作坊</a>
-    </div>
-
-    <div class="row g-3">
-        {% for goal in goals %}
-        <div class="col-12">
-            <div class="archive-card p-3 d-flex justify-content-between align-items-center">
+    <div class="row align-items-center mb-5">
+        <div class="col-md-7">
+            <h2 class="fw-bold mb-3">📁 归档实验室</h2>
+            <p class="text-muted">这里记录了你过去获得的所有成就。每一项归档都是一次成长的印记。</p>
+            
+            <div class="d-flex gap-5 mt-4">
                 <div>
-                    <h5 class="mb-1 fw-bold text-finished">{{ goal.title }}</h5>
-                    <div class="text-muted small">
-                        完成于 {{ goal.created_at|date:"Y-m-d" }} | 
-                        优先级: <span class="badge {% if goal.priority == 'H' %}bg-danger-subtle text-danger{% elif goal.priority == 'M' %}bg-warning-subtle text-warning{% else %}bg-info-subtle text-info{% endif %} fw-normal">
-                            {{ goal.get_priority_display }}
-                        </span>
-                    </div>
+                    <div class="text-muted small mb-1">总计成就</div>
+                    <div class="fs-2 fw-bold text-success">{{ goals.count }}</div>
                 </div>
-                <div class="btn-group shadow-sm">
-                    <button class="btn btn-white btn-sm border btn-restore" data-id="{{ goal.pk }}">
-                        <i class="fas fa-undo-alt me-1"></i>恢复
-                    </button>
-                    <a href="{% url 'goal_detail' goal.pk %}" class="btn btn-white btn-sm border">
-                        <i class="fas fa-eye me-1"></i>回顾
-                    </a>
+                <div class="border-start ps-5">
+                    <div class="text-muted small mb-1">本周突破</div>
+                    <div class="fs-2 fw-bold text-primary">{{ weekly_count }}</div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{% url 'goal_list' %}" class="btn btn-outline-dark btn-sm px-4 rounded-pill">
+                    <i class="fas fa-arrow-left me-2"></i>返回工作坊
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-5 mt-4 mt-md-0">
+            <div class="stat-card p-4">
+                <h6 class="text-center mb-3 fw-bold small text-secondary text-uppercase">技能领域分布</h6>
+                <div style="height: 200px; position: relative;">
+                    <canvas id="archiveDoughnutChart"></canvas>
                 </div>
             </div>
         </div>
-        {% empty %}
-        <div class="text-center py-5">
-            <img src="https://cdn-icons-png.flaticon.com/512/7486/7486744.png" width="80" class="opacity-25 mb-3">
-            <p class="text-muted">还没有任何归档的目标，继续加油！</p>
+    </div>
+
+    <hr class="my-5 opacity-25">
+
+    <div class="goal-list-container">
+        <div class="row g-3">
+            {% for goal in goals %}
+            <div class="col-12">
+                <div class="archive-card p-3 d-flex justify-content-between align-items-center shadow-sm">
+                    <div>
+                        <h5 class="mb-1 fw-bold text-finished">{{ goal.title }}</h5>
+                        <div class="text-muted small d-flex align-items-center gap-2">
+                            <span><i class="far fa-calendar-check me-1"></i>{{ goal.created_at|date:"Y-m-d" }}</span>
+                            <span>|</span>
+                            <span>
+                                优先级: <span class="badge {% if goal.priority == 'H' %}bg-danger-subtle text-danger{% elif goal.priority == 'M' %}bg-warning-subtle text-warning{% else %}bg-info-subtle text-info{% endif %} fw-normal">
+                                    {{ goal.get_priority_display }}
+                                </span>
+                            </span>
+                            {% if goal.tags.all %}
+                            <span>|</span>
+                            <span class="text-secondary">
+                                {% for tag in goal.tags.all %}#{{ tag.name }} {% endfor %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-light btn-sm border btn-restore" data-id="{{ goal.pk }}" title="恢复到主页">
+                            <i class="fas fa-undo-alt text-secondary"></i>
+                        </button>
+                        <a href="{% url 'goal_detail' goal.pk %}" class="btn btn-light btn-sm border" title="查看详情">
+                            <i class="fas fa-chevron-right text-secondary"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5">
+                <img src="https://cdn-icons-png.flaticon.com/512/7486/7486744.png" width="80" class="opacity-25 mb-3">
+                <p class="text-muted">还没有任何归档的目标，去完成一个吧！</p>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 </div>
 
@@ -88,30 +134,67 @@
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.getElementById('csrf-token').value;
 
+    // 1. 恢复功能逻辑
     document.querySelectorAll('.btn-restore').forEach(button => {
         button.addEventListener('click', function() {
             const goalId = this.getAttribute('data-id');
-            restoreGoal(goalId, csrfToken);
+            if(!confirm('确定要将该目标恢复到主页工作坊吗？')) return;
+            
+            fetch(`/goal/restore/${goalId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(res => res.json())
+              .then(data => {
+                  if(data.status === 'success') location.reload(); 
+              });
         });
     });
-});
 
-function restoreGoal(goalId, token) {
-    if(!confirm('确定要将该目标恢复到首页吗？')) return;
-    
-    fetch(`/goal/restore/${goalId}/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': token,
-            'X-Requested-With': 'XMLHttpRequest'
+    // 2. 渲染环形图 (Doughnut Chart)
+    const ctx = document.getElementById('archiveDoughnutChart').getContext('2d');
+    const chartLabels = JSON.parse('{{ chart_labels_json|safe }}');
+    const chartValues = JSON.parse('{{ chart_values_json|safe }}');
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                data: chartValues,
+                backgroundColor: [
+                    '#2ecc71', '#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c', '#95a5a6'
+                ],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: { size: 11 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.label}: ${context.raw} 个目标`;
+                        }
+                    }
+                }
+            }
         }
-    }).then(res => res.json())
-      .then(data => {
-          if(data.status === 'success') {
-              location.reload(); 
-          }
-      });
-}
+    });
+});
 </script>
 </body>
 </html>

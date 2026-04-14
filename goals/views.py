@@ -60,7 +60,7 @@ def goal_list_view(request):
         )
     ).order_by('is_overdue_sort', '-priority_weight', 'deadline')
 
-    # 准备图表数据
+    # 准备主页趋势图数据
     days = []
     task_counts = []
     now = timezone.now()
@@ -88,7 +88,7 @@ def goal_list_view(request):
 
 @login_required
 def goal_detail_view(request, pk):
-    """详情页：展示特定目标的所有子任务，并预加载标签"""
+    """详情页：展示特定目标的所有子任务"""
     goal = get_object_or_404(
         LearningGoal.objects.prefetch_related('tags'), 
         pk=pk, 
@@ -103,66 +103,49 @@ def goal_detail_view(request, pk):
     })
 
 class GoalCreateView(LoginRequiredMixin, CreateView):
-    """新建目标页面：手动处理多对多关联以避免 AttributeErrors"""
+    """新建目标页面"""
     model = LearningGoal
     form_class = LearningGoalForm
     template_name = 'goals/goal_form.html'
     success_url = reverse_lazy('goal_list')
 
     def form_valid(self, form):
-        # 1. 绑定当前用户
         form.instance.user = self.request.user
-        
-        # 2. 先调用父类的保存逻辑，这会创建 self.object (目标实例)
-        # 注意：这里我们不再依赖 form.save_m2m()
         response = super().form_valid(form)
         
-        # 3. 获取并解析标签数据
-        # 优先拿隐藏域 tags_data，其次拿普通输入框 tags
         tags_raw = self.request.POST.get('tags_data') or self.request.POST.get('tags') or ""
-        
         if tags_raw:
-            # 使用正则支持：中文逗号、英文逗号、空格、回车作为分隔符
             tag_names = re.split(r'[，,\s\n]+', tags_raw)
-            # 去重且过滤空字符串
             tag_names = list(set([name.strip() for name in tag_names if name.strip()]))
-            
             for name in tag_names:
-                # get_or_create 确保标签唯一，models 中已设置默认颜色
                 tag_obj, created = Tag.objects.get_or_create(
                     name=name,
                     user=self.request.user
                 )
-                # 直接手动添加到多对多关联中
                 self.object.tags.add(tag_obj)
-        
         return response
+
+# --- 2. AJAX 接口 (任务与归档) ---
 
 @login_required
 @require_POST
 def goal_delete_view(request, pk):
-    """删除目标逻辑"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     goal.delete()
-    messages.success(request, "目标及其所有关联任务已成功移除。")
+    messages.success(request, "目标已删除。")
     return redirect('goal_list')
 
 @login_required
 @require_POST
 def goal_archive_ajax(request, pk):
-    """归档目标逻辑 (AJAX)"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     goal.is_archived = True
     goal.save()
     return JsonResponse({'status': 'success'})
 
-
-# --- 2. 子任务管理 (AJAX 接口) ---
-
 @login_required
 @require_POST
 def subtask_add_ajax(request, goal_id):
-    """添加子任务 (AJAX)"""
     goal = get_object_or_404(LearningGoal, pk=goal_id, user=request.user)
     title = request.POST.get('title', '').strip()
     if title:
@@ -173,16 +156,14 @@ def subtask_add_ajax(request, goal_id):
             'task_title': subtask.title,
             'progress_percentage': goal.progress
         })
-    return JsonResponse({'status': 'error', 'message': '标题不能为空'}, status=400)
+    return JsonResponse({'status': 'error'}, status=400)
 
 @login_required
 @require_POST
 def subtask_toggle_ajax(request, task_id):
-    """切换子任务状态 (AJAX)"""
     subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
     subtask.is_completed = not subtask.is_completed
     subtask.save()
-    
     return JsonResponse({
         'status': 'success',
         'is_completed': subtask.is_completed,
@@ -192,34 +173,55 @@ def subtask_toggle_ajax(request, task_id):
 @login_required
 @require_POST
 def subtask_delete_ajax(request, task_id):
-    """删除子任务 (AJAX)"""
     subtask = get_object_or_404(SubTask, pk=task_id, goal__user=request.user)
     goal = subtask.goal
     subtask.delete()
-    
     return JsonResponse({
         'status': 'success',
         'progress_percentage': goal.progress
     })
 
-# --- 3. 归档实验室 ---
+# --- 3. 归档实验室 (增强版) ---
+
+# --- 3. 归档实验室 (修复版) ---
 
 @login_required
 def archived_goals_view(request):
-    """显示所有已归档的目标，预加载标签以解决“未分类”问题"""
+    """显示已归档目标，包含环形图分布统计"""
+    # 1. 基础查询
     archived_goals = LearningGoal.objects.filter(
         user=request.user, 
         is_archived=True
-    ).prefetch_related('tags').order_by('-created_at') 
-    
+    ).prefetch_related('tags').order_by('-created_at')
+
+    # 2. 环形图数据：将 learninggoal 替换为 goals (根据报错提示的 choices)
+    tag_counts = Tag.objects.filter(
+        goals__user=request.user,     # 这里改为 goals__user
+        goals__is_archived=True       # 这里改为 goals__is_archived
+    ).annotate(num_goals=Count('goals')).order_by('-num_goals') # 这里改为 Count('goals')
+
+    chart_labels = [tag.name for tag in tag_counts]
+    chart_values = [tag.num_goals for tag in tag_counts]
+
+    # 如果没有任何带标签的归档，给个默认提示数据
+    if not chart_labels:
+        chart_labels = ["暂无数据"]
+        chart_values = [0]
+
+    # 3. 本周完成统计
+    last_7_days = timezone.now() - timedelta(days=7)
+    weekly_archived_count = archived_goals.filter(created_at__gte=last_7_days).count()
+
     return render(request, 'goals/archived_list.html', {
-        'goals': archived_goals
+        'goals': archived_goals,
+        'weekly_count': weekly_archived_count,
+        'chart_labels_json': json.dumps(chart_labels),
+        'chart_values_json': json.dumps(chart_values),
     })
 
 @login_required
 @require_POST
 def goal_restore_ajax(request, pk):
-    """将目标从归档状态恢复到激活状态"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     goal.is_archived = False
     goal.save()
