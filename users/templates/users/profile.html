@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        /* 优化表单控件外观 */
+        
+        /* 优化表单控件 */
         .form-control, .form-select { 
             border-radius: 8px; 
             border: 1px solid #eef0f2; 
@@ -18,10 +19,36 @@
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.05);
             border-color: #0d6efd;
         }
+        
         .card { border-radius: 12px; border: none; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
         .nav-link-custom { color: #6c757d; text-decoration: none; margin-right: 15px; font-size: 0.9rem; transition: 0.2s; }
         .nav-link-custom:hover { color: #0d6efd; }
         .btn-logout { background: none; border: none; padding: 0; vertical-align: baseline; }
+
+        /* Rank 勋章 */
+        .rank-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-weight: bold;
+            border: 1px solid var(--theme-color);
+            color: var(--theme-color);
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+
+        /* 动态进度条 */
+        .dynamic-progress-bar {
+            background-color: var(--theme-color);
+            width: var(--progress-width);
+            transition: width 0.8s ease;
+        }
+
+        /* 等级指南项 */
+        .guide-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f5;
+        }
+        .guide-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -62,20 +89,36 @@
                     </span>
                     <hr class="my-4 opacity-25">
                     <div class="text-start">
-                        <h6 class="fw-bold small text-secondary text-uppercase">个人简介</h6>
+                        <h6 class="fw-bold small text-secondary text-uppercase mb-2">个人简介</h6>
                         <p class="text-muted small mb-0">{{ user.bio|default:"这个玩家很神秘，什么都没写..." }}</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card mb-4">
                 <div class="card-header bg-white py-3 border-0">
-                    <h6 class="mb-0 fw-bold"><i class="fas fa-chart-line text-success me-2"></i>累计数据</h6>
+                    <h6 class="mb-0 fw-bold"><i class="fas fa-medal text-warning me-2"></i>技能升阶标准</h6>
                 </div>
                 <div class="card-body pt-0">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-muted small">已完成大目标</span>
-                        <span class="fw-bold fs-5 text-success">{{ completed_goals_count }}</span>
+                    <div class="guide-item d-flex justify-content-between align-items-center">
+                        <span class="small" style="color: #4dc3ff;"><i class="fas fa-gem me-2"></i>钻石领域</span>
+                        <span class="badge bg-light text-dark fw-bold">20 目标</span>
+                    </div>
+                    <div class="guide-item d-flex justify-content-between align-items-center">
+                        <span class="small" style="color: #6c757d;"><i class="fas fa-ring me-2"></i>白金领域</span>
+                        <span class="badge bg-light text-dark">15 目标</span>
+                    </div>
+                    <div class="guide-item d-flex justify-content-between align-items-center">
+                        <span class="small" style="color: #ffd700;"><i class="fas fa-crown me-2"></i>黄金领域</span>
+                        <span class="badge bg-light text-dark">10 目标</span>
+                    </div>
+                    <div class="guide-item d-flex justify-content-between align-items-center">
+                        <span class="small" style="color: #c0c0c0;"><i class="fas fa-coins me-2"></i>白银领域</span>
+                        <span class="badge bg-light text-dark">5 目标</span>
+                    </div>
+                    <div class="guide-item d-flex justify-content-between align-items-center">
+                        <span class="small" style="color: #cd7f32;"><i class="fas fa-shield-alt me-2"></i>青铜领域</span>
+                        <span class="badge bg-light text-dark">初始</span>
                     </div>
                 </div>
             </div>
@@ -89,25 +132,27 @@
                 <div class="card-body pt-0">
                     {% if skill_stats %}
                         {% for stat in skill_stats %}
-                        <div class="mb-4">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="fw-bold small"># {{ stat.name }}</span>
-                                <span class="text-muted" style="font-size: 0.75rem;">已攻克 {{ stat.num_completed }} 个节点</span>
+                        <div class="mb-4" style="--theme-color: {{ stat.rank_color }}; --progress-width: {{ stat.percent }}%;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <span class="fw-bold"># {{ stat.name }}</span>
+                                    <span class="rank-badge ms-2">
+                                        {{ stat.rank }}
+                                    </span>
+                                </div>
+                                <span class="text-muted" style="font-size: 0.75rem;">累计达成 {{ stat.total_count }} 个目标</span>
                             </div>
                             
-                            {% widthratio stat.num_completed 5 100 as progress_percent %}
                             <div class="progress" style="height: 10px; background-color: #eee;">
-                                <div class="progress-bar bg-success rounded-pill" 
-                                     role="progressbar"
-                                     style="width: calc(var(--val, 0) * 1%); --val: {{ progress_percent|default:0 }}; transition: width 0.8s ease-in-out;">
+                                <div class="progress-bar rounded-pill dynamic-progress-bar" role="progressbar">
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     {% else %}
-                        <div class="text-center py-4">
+                        <div class="text-center py-5">
                             <i class="fas fa-seedling text-light fa-3x mb-3"></i>
-                            <p class="text-muted small mb-0">这里空空如也，完成带有标签的任务即可开启进化路径！</p>
+                            <p class="text-muted small">尚未开启任何路径。完成带有标签的目标即可开启进化！</p>
                         </div>
                     {% endif %}
                 </div>
@@ -126,17 +171,13 @@
                                 {{ form.nickname }}
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label small fw-bold text-secondary">当前等级</label>
+                                <label class="form-label small fw-bold text-secondary">称号等级</label>
                                 {{ form.skill_level }}
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">关注领域 (标签用空格分隔)</label>
-                            {{ form.skill_tags }}
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">更新头像</label>
-                            <div class="py-1 custom-file-input">{{ form.avatar }}</div>
+                            <label class="form-label small fw-bold text-secondary">头像更新</label>
+                            <div class="py-1">{{ form.avatar }}</div>
                         </div>
                         <div class="mb-4">
                             <label class="form-label small fw-bold text-secondary">个人介绍</label>
