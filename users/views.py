@@ -23,11 +23,12 @@ def register_view(request):
 @login_required
 def profile_view(request):
     """
-    个人资料页：展示按标签独立进化的技能路径 + 修改资料
+    个人资料页：展示按标签独立进化的技能路径
+    修复：使用 goals__is_completed (双下划线) 解决跨表字段查询报错
     """
     user = request.user
     
-    # 1. 处理资料更新表单 (包含头像上传)
+    # 1. 处理资料更新表单
     if request.method == 'POST':
         form = UserProfileForm(request.POST, request.FILES, instance=user)
         if form.is_valid():
@@ -37,8 +38,7 @@ def profile_view(request):
     else:
         form = UserProfileForm(instance=user)
 
-    # 2. 定义进化等级标准 (阈值, 名称, 颜色)
-    # 提示：如果当前目标数较少，可以把 20, 15 等数字调小以便测试
+    # 2. 等级标准
     RANK_STAGES = [
         (20, "钻石", "#4dc3ff"),
         (15, "白金", "#6c757d"),
@@ -47,17 +47,25 @@ def profile_view(request):
         (0,  "青铜", "#cd7f32"),
     ]
 
-    # 3. 核心统计逻辑：按标签独立计数
-    # 关键点：Count('goals') 是因为 LearningGoal 模型里 tags 字段定义了 related_name='goals'
+    # 3. 核心统计逻辑
+    # 注意：filter 中的 Q 对象必须使用 goals__前缀，因为是从 Tag 查 Goal [cite: 41, 149]
     tag_stats_query = Tag.objects.filter(user=user).annotate(
-        goal_count=Count('goals') 
-    ).order_by('-goal_count')
+        # 修复关键：确保查询路径通过双下划线正确指向 LearningGoal 的布尔字段
+        achieved_count=Count(
+            'goals', 
+            filter=Q(goals__is_completed=True) & Q(goals__is_archived=True)
+        ),
+        total_related_count=Count('goals')
+    ).order_by('-achieved_count')
 
     skill_stats = []
     for tag in tag_stats_query:
-        count = tag.goal_count
+        # 排除已删除目标后留下的“孤儿标签”
+        if tag.total_related_count == 0:
+            continue
+            
+        count = tag.achieved_count
         
-        # 匹配当前标签符合的最高 Rank 阶段
         tag_rank = "青铜"
         tag_color = "#cd7f32"
         for threshold, name, color in RANK_STAGES:
@@ -66,7 +74,6 @@ def profile_view(request):
                 tag_color = color
                 break 
         
-        # 计算进度条百分比 (以 20 个目标作为 100% 满进度)
         progress_percent = min((count / 20) * 100, 100)
         
         skill_stats.append({
@@ -77,9 +84,13 @@ def profile_view(request):
             'percent': progress_percent
         })
 
-    # 4. 获取总完成目标数
-    # 只要是归档状态 (is_archived=True) 的目标都算作已完成
-    completed_total = LearningGoal.objects.filter(user=user, is_archived=True).count()
+    # 4. 总完成数统计
+    # 直接查询 LearningGoal 模型，字段名不带前缀 
+    completed_total = LearningGoal.objects.filter(
+        user=user, 
+        is_completed=True, 
+        is_archived=True
+    ).count()
 
     context = {
         'form': form,

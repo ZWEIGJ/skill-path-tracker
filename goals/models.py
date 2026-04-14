@@ -4,12 +4,10 @@ from django.utils import timezone
 
 class Tag(models.Model):
     """
-    标签模型：支持用户自定义分类，颜色字段设有默认值以防报错。
+    标签模型：支持用户自定义分类。
     """
     name = models.CharField(max_length=30, verbose_name="标签名")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name="所属用户")
-    
-    # 设置默认值并允许为空，解决 IntegrityError
     color = models.CharField(
         max_length=20, 
         default='#e3e2e0', 
@@ -46,9 +44,14 @@ class LearningGoal(models.Model):
         default=Priority.MEDIUM,
         verbose_name="优先级"
     )
+    
+    # 核心修复点 1：增加真实的数据库字段，以便 views.py 能进行 filter 统计
+    is_completed = models.BooleanField(default=False, verbose_name="是否达成")
     is_archived = models.BooleanField(default=False, verbose_name="是否归档")
+    
     tags = models.ManyToManyField(Tag, blank=True, related_name='goals', verbose_name="分类标签")
 
+    # 动态计算进度百分比（用于前端显示）
     @property
     def progress(self):
         tasks = self.subtasks.all()
@@ -57,9 +60,19 @@ class LearningGoal(models.Model):
         completed = tasks.filter(is_completed=True).count()
         return int((completed / total) * 100)
 
+    # 核心修复点 2：自动更新 is_completed 状态的逻辑
+    def update_completion_status(self):
+        """检查子任务，如果全部完成则标记 is_completed 为 True"""
+        tasks = self.subtasks.all()
+        if tasks.exists() and all(t.is_completed for t in tasks):
+            self.is_completed = True
+        else:
+            self.is_completed = False
+        self.save(update_fields=['is_completed'])
+
     @property
     def is_overdue(self):
-        if self.deadline and self.deadline < timezone.now().date() and self.progress < 100:
+        if self.deadline and self.deadline < timezone.now().date() and not self.is_completed:
             return True
         return False
 
@@ -71,11 +84,25 @@ class LearningGoal(models.Model):
         verbose_name_plural = "学习目标"
 
 class SubTask(models.Model):
+    """
+    子任务模型。
+    """
     goal = models.ForeignKey(LearningGoal, on_delete=models.CASCADE, related_name='subtasks')
     title = models.CharField(max_length=200, verbose_name="任务内容")
     is_completed = models.BooleanField(default=False, verbose_name="是否完成")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    def save(self, *args, **kwargs):
+        # 核心修复点 3：每次子任务保存时，触发父目标的完成状态检查
+        super().save(*args, **kwargs)
+        self.goal.update_completion_status()
+
+    def delete(self, *args, **kwargs):
+        # 删除子任务时也要重新检查状态
+        goal = self.goal
+        super().delete(*args, **kwargs)
+        goal.update_completion_status()
 
     def __str__(self):
         return f"{self.goal.title} - {self.title}"
