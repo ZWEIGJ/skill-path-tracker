@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人中心 - SkillPath</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        /* 优化表单控件外观 */
+        .form-control, .form-select { 
+            border-radius: 8px; 
+            border: 1px solid #eef0f2; 
+            padding: 0.6rem 0.75rem;
+        }
+        .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.05);
+            border-color: #0d6efd;
+        }
+        .card { border-radius: 12px; border: none; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
+        .nav-link-custom { color: #6c757d; text-decoration: none; margin-right: 15px; font-size: 0.9rem; transition: 0.2s; }
+        .nav-link-custom:hover { color: #0d6efd; }
+        .btn-logout { background: none; border: none; padding: 0; vertical-align: baseline; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
+    <div class="container">
+        <a class="navbar-brand fw-bold text-success" href="{% url 'goal_list' %}">SkillPath</a>
+        <div class="ms-auto d-flex align-items-center">
+            <a href="{% url 'goal_list' %}" class="nav-link-custom">主页</a>
+            <a href="{% url 'archived_goals' %}" class="nav-link-custom">归档</a>
+            <span class="text-muted small mx-2">|</span>
+            
+            <form action="{% url 'logout' %}" method="post" class="m-0 p-0">
+                {% csrf_token %}
+                <button type="submit" class="nav-link-custom btn-logout text-danger ms-2">退出</button>
+            </form>
+        </div>
+    </div>
+</nav>
+
+<div class="container pb-5">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        {% if user.avatar %}
+                            <img src="{{ user.avatar.url }}" alt="头像" class="rounded-circle img-thumbnail shadow-sm" style="width: 120px; height: 120px; object-fit: cover;">
+                        {% else %}
+                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
+                                <i class="fas fa-user fa-3x text-secondary"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <h4 class="mb-0 fw-bold">{{ user.nickname|default:user.username }}</h4>
+                    <span class="badge bg-light text-primary mt-2 px-3 py-2 border">
+                        {{ user.get_skill_level_display }}
+                    </span>
+                    <hr class="my-4 opacity-25">
+                    <div class="text-start">
+                        <h6 class="fw-bold small text-secondary text-uppercase">个人简介</h6>
+                        <p class="text-muted small mb-0">{{ user.bio|default:"这个玩家很神秘，什么都没写..." }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-white py-3 border-0">
+                    <h6 class="mb-0 fw-bold"><i class="fas fa-chart-line text-success me-2"></i>累计数据</h6>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted small">已完成大目标</span>
+                        <span class="fw-bold fs-5 text-success">{{ completed_goals_count }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="mb-0 fw-bold">我的技能路径</h5>
+                </div>
+                <div class="card-body pt-0">
+                    {% if skill_stats %}
+                        {% for stat in skill_stats %}
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="fw-bold small"># {{ stat.name }}</span>
+                                <span class="text-muted" style="font-size: 0.75rem;">已攻克 {{ stat.num_completed }} 个节点</span>
+                            </div>
+                            
+                            {% widthratio stat.num_completed 5 100 as progress_percent %}
+                            <div class="progress" style="height: 10px; background-color: #eee;">
+                                <div class="progress-bar bg-success rounded-pill" 
+                                     role="progressbar"
+                                     style="width: calc(var(--val, 0) * 1%); --val: {{ progress_percent|default:0 }}; transition: width 0.8s ease-in-out;">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-seedling text-light fa-3x mb-3"></i>
+                            <p class="text-muted small mb-0">这里空空如也，完成带有标签的任务即可开启进化路径！</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-white py-3 border-0">
+                    <h5 class="mb-0 fw-bold text-primary">设置资料</h5>
+                </div>
+                <div class="card-body pt-0">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-secondary">昵称</label>
+                                {{ form.nickname }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-bold text-secondary">当前等级</label>
+                                {{ form.skill_level }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">关注领域 (标签用空格分隔)</label>
+                            {{ form.skill_tags }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">更新头像</label>
+                            <div class="py-1 custom-file-input">{{ form.avatar }}</div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-secondary">个人介绍</label>
+                            {{ form.bio }}
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary px-5 py-2 fw-bold shadow-sm">保存并同步</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

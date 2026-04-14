@@ -31,6 +31,45 @@
             padding: 0 20px;
         }
 
+        /* --- 导航栏入口样式 --- */
+        .nav-actions { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .user-profile-link {
+            text-decoration: none;
+            color: var(--notion-text);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .user-profile-link:hover {
+            background-color: var(--notion-hover);
+        }
+        .avatar-mini {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            background-color: #eee;
+        }
+        .level-badge-mini {
+            font-size: 0.65rem;
+            background-color: #e2f5ff;
+            color: var(--notion-blue);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
         /* 统计卡片样式 */
         .stat-card {
             border: 1px solid var(--notion-border);
@@ -69,7 +108,7 @@
             height: 100%;
             position: relative;
             background: white;
-            overflow: hidden; /* 防止内部溢出 */
+            overflow: hidden;
         }
         .goal-card:hover {
             background-color: var(--notion-hover);
@@ -105,14 +144,13 @@
         }
         .overdue-text { color: var(--notion-red) !important; font-weight: 700; }
 
-        /* --- 标签系统样式优化 --- */
         .tag-container {
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
             margin-top: 8px;
             margin-bottom: 12px;
-            min-height: 24px; /* 确保有固定高度占位 */
+            min-height: 24px;
         }
         .custom-tag {
             font-size: 0.72rem;
@@ -160,8 +198,6 @@
         }
         .add-goal-btn:hover { background-color: var(--notion-hover); border-color: var(--notion-blue); color: var(--notion-blue); }
 
-        .nav-actions { position: absolute; top: 20px; right: 20px; }
-
         .archive-link {
             color: #acaba9;
             text-decoration: none;
@@ -179,10 +215,23 @@
 <body>
 
     <div class="nav-actions">
-        <form action="{% url 'logout' %}" method="post">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-link text-muted text-decoration-none small">退出登录</button>
-        </form>
+        {% if user.is_authenticated %}
+            <a href="{% url 'profile' %}" class="user-profile-link">
+                {% if user.avatar %}
+                    <img src="{{ user.avatar.url }}" class="avatar-mini" alt="User">
+                {% else %}
+                    <div class="avatar-mini d-flex align-items-center justify-content-center bg-light">
+                        <small class="text-secondary" style="font-size: 10px;">👤</small>
+                    </div>
+                {% endif %}
+                <span class="fw-bold">{{ user.nickname|default:user.username }}</span>
+                <span class="level-badge-mini">{{ user.get_skill_level_display }}</span>
+            </a>
+            <form action="{% url 'logout' %}" method="post" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-link text-muted text-decoration-none small p-0">退出</button>
+            </form>
+        {% endif %}
     </div>
 
     <div class="notion-container">
