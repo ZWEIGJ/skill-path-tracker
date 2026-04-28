@@ -45,22 +45,23 @@ class LearningGoal(models.Model):
         verbose_name="优先级"
     )
     
-    # 核心修复点 1：增加真实的数据库字段，以便 views.py 能进行 filter 统计
     is_completed = models.BooleanField(default=False, verbose_name="是否达成")
     is_archived = models.BooleanField(default=False, verbose_name="是否归档")
     
+    # 🌟 核心修复：记录归档的具体时间，用于统计“本周突破”
+    archived_at = models.DateTimeField(null=True, blank=True, verbose_name="归档时间")
+    
     tags = models.ManyToManyField(Tag, blank=True, related_name='goals', verbose_name="分类标签")
 
-    # 动态计算进度百分比（用于前端显示）
     @property
     def progress(self):
+        """动态计算进度百分比"""
         tasks = self.subtasks.all()
         total = tasks.count()
         if total == 0: return 0
         completed = tasks.filter(is_completed=True).count()
         return int((completed / total) * 100)
 
-    # 核心修复点 2：自动更新 is_completed 状态的逻辑
     def update_completion_status(self):
         """检查子任务，如果全部完成则标记 is_completed 为 True"""
         tasks = self.subtasks.all()
@@ -72,6 +73,7 @@ class LearningGoal(models.Model):
 
     @property
     def is_overdue(self):
+        """逾期判定"""
         if self.deadline and self.deadline < timezone.now().date() and not self.is_completed:
             return True
         return False
@@ -94,7 +96,7 @@ class SubTask(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     def save(self, *args, **kwargs):
-        # 核心修复点 3：每次子任务保存时，触发父目标的完成状态检查
+        # 每次子任务保存时，触发父目标的完成状态检查
         super().save(*args, **kwargs)
         self.goal.update_completion_status()
 

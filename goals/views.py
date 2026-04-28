@@ -12,7 +12,7 @@ from django.db.models import Case, When, IntegerField, Q, BooleanField, F, Count
 from django.utils import timezone
 from datetime import timedelta
 
-# 确保导入了正确的模型和表单
+# 导入正确的模型和表单
 from .models import LearningGoal, SubTask, Tag 
 from .forms import LearningGoalForm
 
@@ -22,13 +22,10 @@ def _process_tags(user, goal, tags_raw):
     """提取字符串中的标签并关联到目标"""
     if tags_raw is None:
         return
-    # 支持中文逗号、英文逗号、空格、换行拆分
     tag_names = re.split(r'[，,\s\n]+', str(tags_raw))
     tag_names = list(set([name.strip() for name in tag_names if name.strip()]))
     
-    # 清除旧标签
     goal.tags.clear()
-    
     for name in tag_names:
         tag_obj, created = Tag.objects.get_or_create(
             name=name,
@@ -45,15 +42,16 @@ def goal_list_view(request):
     user_goals = LearningGoal.objects.filter(user=request.user)
     
     total_count = user_goals.count()
-    completed_real_count = sum(1 for g in user_goals if g.progress >= 100)
+    completed_real_count = user_goals.filter(is_completed=True).count()
     active_display_count = user_goals.filter(is_archived=False).count()
     archived_count = user_goals.filter(is_archived=True).count()
     
+    # 首页周动态：展示最近7天完成的子任务数量
     last_7_days = timezone.now() - timedelta(days=7)
     weekly_subtasks = SubTask.objects.filter(
         goal__user=request.user, 
         is_completed=True, 
-        created_at__gte=last_7_days 
+        updated_at__gte=last_7_days # 使用 updated_at 更准确反映完成时间
     ).count()
 
     goals = user_goals.filter(is_archived=False).prefetch_related('tags').annotate(
@@ -61,8 +59,7 @@ def goal_list_view(request):
         completed_tasks_count=Count('subtasks', filter=Q(subtasks__is_completed=True)),
         is_overdue_sort=Case(
             When(
-                Q(deadline__lt=now_date) & 
-                (Q(total_tasks=0) | Q(completed_tasks_count__lt=F('total_tasks'))), 
+                Q(deadline__lt=now_date) & Q(is_completed=False), 
                 then=True
             ),
             default=False,
@@ -77,6 +74,7 @@ def goal_list_view(request):
         )
     ).order_by('is_overdue_sort', '-priority_weight', 'deadline')
 
+    # 图表数据：最近7天每日完成情况
     days = []
     task_counts = []
     now = timezone.now()
@@ -86,7 +84,7 @@ def goal_list_view(request):
         count = SubTask.objects.filter(
             goal__user=request.user,
             is_completed=True,
-            created_at__date=date
+            updated_at__date=date
         ).count()
         task_counts.append(count)
 
@@ -123,6 +121,7 @@ def goal_detail_view(request, pk):
 @login_required
 @require_POST
 def goal_update_ajax(request, pk):
+    """AJAX：更新目标的基础字段"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     field = request.POST.get('field')
     value = request.POST.get('value', '').strip()
@@ -131,7 +130,7 @@ def goal_update_ajax(request, pk):
         goal.title = value
     elif field == 'description':
         goal.description = value
-    elif field == 'deadline': # 新增：处理日期更新
+    elif field == 'deadline':
         goal.deadline = value if value else None
     elif field == 'tags':
         _process_tags(request.user, goal, value)
@@ -161,6 +160,7 @@ class GoalCreateView(LoginRequiredMixin, CreateView):
 @login_required
 @require_POST
 def goal_delete_view(request, pk):
+    """彻底删除目标"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     goal.delete()
     messages.success(request, "目标已删除。")
@@ -169,8 +169,13 @@ def goal_delete_view(request, pk):
 @login_required
 @require_POST
 def goal_archive_ajax(request, pk):
+    """
+    AJAX：归档目标
+    修复：在归档时记录当前时间
+    """
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     goal.is_archived = True
+    goal.archived_at = timezone.now() # 🌟 记录归档时刻
     goal.save()
     return JsonResponse({'status': 'success'})
 
@@ -216,26 +221,35 @@ def subtask_delete_ajax(request, task_id):
 
 @login_required
 def archived_goals_view(request):
-    """已归档列表"""
+    """
+    已归档列表：展示成就墙与本周突破
+    """
+    # 🌟 优化：按归档时间排序，最近归档的排最前
     archived_goals = LearningGoal.objects.filter(
         user=request.user, 
         is_archived=True
-    ).prefetch_related('tags').order_by('-created_at')
+    ).prefetch_related('tags').order_by('-archived_at')
 
+    # 图表统计：统计归档目标中不同标签的分布
     tag_counts = Tag.objects.filter(
         goals__user=request.user,
         goals__is_archived=True
-    ).annotate(num_goals=Count('goals')).order_by('-num_goals')
+    ).annotate(num_goals=Count('goals', filter=Q(goals__is_archived=True))).order_by('-num_goals')
 
     chart_labels = [tag.name for tag in tag_counts] or ["暂无数据"]
     chart_values = [tag.num_goals for tag in tag_counts] or [0]
 
-    last_7_days = timezone.now() - timedelta(days=7)
-    weekly_archived_count = archived_goals.filter(created_at__gte=last_7_days).count()
+    # 🌟 修复“本周突破”逻辑 Bug：
+    # 计算本周（周一凌晨起）内归档的目标数量，而非创建时间
+    now = timezone.now()
+    start_of_week = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    weekly_archived_count = archived_goals.filter(archived_at__gte=start_of_week).count()
 
     return render(request, 'goals/archived_list.html', {
         'goals': archived_goals,
         'weekly_count': weekly_archived_count,
+        'total_achievements': archived_goals.count(),
         'chart_labels_json': json.dumps(chart_labels),
         'chart_values_json': json.dumps(chart_values),
     })
@@ -243,7 +257,9 @@ def archived_goals_view(request):
 @login_required
 @require_POST
 def goal_restore_ajax(request, pk):
+    """从归档中恢复目标"""
     goal = get_object_or_404(LearningGoal, pk=pk, user=request.user)
     goal.is_archived = False
+    goal.archived_at = None # 恢复时清除归档时间戳
     goal.save()
     return JsonResponse({'status': 'success'})
