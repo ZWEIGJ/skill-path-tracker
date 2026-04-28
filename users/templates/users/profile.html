@@ -7,192 +7,212 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root {
+            --notion-blue: #5297ff;
+            --notion-bg: #f8f9fa;
+            --notion-border: #edece9;
+            --notion-text-muted: #6c757d;
+        }
+
+        body { background-color: var(--notion-bg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #37352f; }
+        .card { border-radius: 16px; border: 1px solid var(--notion-border); box-shadow: 0 4px 12px rgba(0,0,0,0.05); background: #fff; margin-bottom: 24px; }
         
-        /* 优化表单控件 */
-        .form-control, .form-select { 
-            border-radius: 8px; 
-            border: 1px solid #eef0f2; 
-            padding: 0.6rem 0.75rem;
+        /* 导航栏 */
+        .nav-link-custom { color: var(--notion-text-muted); text-decoration: none; margin-right: 15px; font-size: 0.9rem; font-weight: 500; transition: 0.2s; }
+        .nav-link-custom:hover { color: var(--notion-blue); }
+
+        /* --- 头像系统 --- */
+        .avatar-wrapper { 
+            width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; overflow: hidden; 
+            background-color: var(--notion-blue); border: 4px solid #fff; box-shadow: 0 8px 20px rgba(82, 151, 255, 0.2); 
         }
-        .form-control:focus {
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.05);
-            border-color: #0d6efd;
+        .avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .avatar-letter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 3.5rem; font-weight: 700; }
+
+        /* --- 进度条系统 (CSS无报错设计) --- */
+        .dynamic-progress-bar { 
+            height: 10px; border-radius: 10px; 
+            width: 0; /* JS驱动 */
+            background-color: var(--pg-color); 
+            transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1); 
         }
+
+        /* --- 现代头像上传 UI --- */
+        .avatar-upload-box { position: relative; background: #f1f3f5; padding: 18px; border-radius: 12px; border: 2px dashed #dee2e6; text-align: center; font-size: 0; }
+        .avatar-upload-box a, .avatar-upload-box br, .avatar-upload-box input[type="checkbox"], .avatar-upload-box label[for*="-clear"] { display: none !important; }
+        .avatar-upload-box input[type="file"]::file-selector-button { 
+            background: var(--notion-blue); color: white; border: none; padding: 8px 18px; 
+            border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; margin-right: 10px; 
+        }
+
+        /* --- 表单对齐与美化 --- */
+        .notion-input { border: 1px solid var(--notion-border); padding: 12px 16px; border-radius: 10px; background: #fafafa; transition: 0.2s; width: 100%; }
+        .notion-input:focus { background: #fff; border-color: var(--notion-blue); box-shadow: 0 0 0 4px rgba(82, 151, 255, 0.1); outline: none; }
         
-        .card { border-radius: 12px; border: none; box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
-        .nav-link-custom { color: #6c757d; text-decoration: none; margin-right: 15px; font-size: 0.9rem; transition: 0.2s; }
-        .nav-link-custom:hover { color: #0d6efd; }
-        .btn-logout { background: none; border: none; padding: 0; vertical-align: baseline; }
-
-        /* Rank 勋章 */
-        .rank-badge {
-            font-size: 0.7rem;
-            padding: 0.2rem 0.6rem;
-            border-radius: 20px;
-            font-weight: bold;
-            border: 1px solid var(--theme-color);
-            color: var(--theme-color);
-            background-color: rgba(0, 0, 0, 0.03);
-        }
-
-        /* 动态进度条 */
-        .dynamic-progress-bar {
-            background-color: var(--theme-color);
-            width: var(--progress-width);
-            transition: width 0.8s ease;
-        }
-
-        /* 等级指南项 */
-        .guide-item {
-            padding: 8px 0;
-            border-bottom: 1px solid #f1f3f5;
-        }
+        .guide-item { padding: 10px 0; border-bottom: 1px solid #f1f3f5; font-size: 0.9rem; }
         .guide-item:last-child { border-bottom: none; }
+
+        select.notion-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236c757d' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 12px; padding-right: 2.5rem; }
     </style>
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-5">
     <div class="container">
-        <a class="navbar-brand fw-bold text-success" href="{% url 'goal_list' %}">SkillPath</a>
+        <a class="navbar-brand fw-bold text-primary" href="{% url 'goal_list' %}" style="letter-spacing: -1px;">SkillPath</a>
         <div class="ms-auto d-flex align-items-center">
             <a href="{% url 'goal_list' %}" class="nav-link-custom">主页</a>
             <a href="{% url 'archived_goals' %}" class="nav-link-custom">归档</a>
             <span class="text-muted small mx-2">|</span>
-            
-            <form action="{% url 'logout' %}" method="post" class="m-0 p-0">
+            <form action="{% url 'logout' %}" method="post" class="m-0">
                 {% csrf_token %}
-                <button type="submit" class="nav-link-custom btn-logout text-danger ms-2">退出</button>
+                <button type="submit" class="nav-link-custom border-0 bg-transparent text-danger">退出</button>
             </form>
         </div>
     </div>
 </nav>
 
 <div class="container pb-5">
-    <div class="row">
+    <div class="row g-4">
         <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-body text-center">
-                    <div class="mb-3">
-                        {% if user.avatar %}
-                            <img src="{{ user.avatar.url }}" alt="头像" class="rounded-circle img-thumbnail shadow-sm" style="width: 120px; height: 120px; object-fit: cover;">
-                        {% else %}
-                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">
-                                <i class="fas fa-user fa-3x text-secondary"></i>
-                            </div>
-                        {% endif %}
-                    </div>
-                    <h4 class="mb-0 fw-bold">{{ user.nickname|default:user.username }}</h4>
-                    <span class="badge bg-light text-primary mt-2 px-3 py-2 border">
-                        {{ user.get_skill_level_display }}
-                    </span>
-                    <hr class="my-4 opacity-25">
-                    <div class="text-start">
-                        <h6 class="fw-bold small text-secondary text-uppercase mb-2">个人简介</h6>
-                        <p class="text-muted small mb-0">{{ user.bio|default:"这个玩家很神秘，什么都没写..." }}</p>
-                    </div>
+            <div class="card p-4 text-center">
+                <div class="avatar-wrapper mb-3">
+                    {% if user.avatar %}
+                        <img src="{{ user.avatar.url }}" class="avatar-img" id="avatar-preview" 
+                             onerror="this.style.display='none'; document.getElementById('letter-avatar').style.display='flex';">
+                        <div id="letter-avatar" class="avatar-letter" style="display: none;">{{ user.username|first|upper }}</div>
+                    {% else %}
+                        <div class="avatar-letter">{{ user.username|first|upper }}</div>
+                    {% endif %}
                 </div>
+                <h4 class="fw-bold mb-1">{{ user.nickname|default:user.username }}</h4>
+                <span class="badge bg-light text-primary border px-3 py-2 rounded-pill small">
+                    {{ user.get_skill_level_display|default:"初学者" }}
+                </span>
+                <p class="text-muted small mt-4">{{ user.bio|default:"这位同学还没有留下简介..." }}</p>
             </div>
 
-            <div class="card mb-4">
-                <div class="card-header bg-white py-3 border-0">
-                    <h6 class="mb-0 fw-bold"><i class="fas fa-medal text-warning me-2"></i>技能升阶标准</h6>
+            <div class="card p-4">
+                <h6 class="fw-bold mb-3"><i class="fas fa-medal text-warning me-2"></i>技能升阶标准</h6>
+                <div class="guide-item d-flex justify-content-between align-items-center">
+                    <span style="color: #4dc3ff;"><i class="fas fa-gem me-2"></i>钻石领域</span>
+                    <span class="fw-bold">20 目标</span>
                 </div>
-                <div class="card-body pt-0">
-                    <div class="guide-item d-flex justify-content-between align-items-center">
-                        <span class="small" style="color: #4dc3ff;"><i class="fas fa-gem me-2"></i>钻石领域</span>
-                        <span class="badge bg-light text-dark fw-bold">20 目标</span>
-                    </div>
-                    <div class="guide-item d-flex justify-content-between align-items-center">
-                        <span class="small" style="color: #6c757d;"><i class="fas fa-ring me-2"></i>白金领域</span>
-                        <span class="badge bg-light text-dark">15 目标</span>
-                    </div>
-                    <div class="guide-item d-flex justify-content-between align-items-center">
-                        <span class="small" style="color: #ffd700;"><i class="fas fa-crown me-2"></i>黄金领域</span>
-                        <span class="badge bg-light text-dark">10 目标</span>
-                    </div>
-                    <div class="guide-item d-flex justify-content-between align-items-center">
-                        <span class="small" style="color: #c0c0c0;"><i class="fas fa-coins me-2"></i>白银领域</span>
-                        <span class="badge bg-light text-dark">5 目标</span>
-                    </div>
-                    <div class="guide-item d-flex justify-content-between align-items-center">
-                        <span class="small" style="color: #cd7f32;"><i class="fas fa-shield-alt me-2"></i>青铜领域</span>
-                        <span class="badge bg-light text-dark">初始</span>
-                    </div>
+                <div class="guide-item d-flex justify-content-between align-items-center">
+                    <span style="color: #6c757d;"><i class="fas fa-ring me-2"></i>白金领域</span>
+                    <span class="text-muted">15 目标</span>
+                </div>
+                <div class="guide-item d-flex justify-content-between align-items-center">
+                    <span style="color: #ffd700;"><i class="fas fa-crown me-2"></i>黄金领域</span>
+                    <span class="text-muted">10 目标</span>
+                </div>
+                <div class="guide-item d-flex justify-content-between align-items-center">
+                    <span style="color: #c0c0c0;"><i class="fas fa-coins me-2"></i>白银领域</span>
+                    <span class="text-muted">5 目标</span>
+                </div>
+                <div class="guide-item d-flex justify-content-between align-items-center">
+                    <span style="color: #cd7f32;"><i class="fas fa-shield-alt me-2"></i>青铜领域</span>
+                    <span class="text-muted">初始阶段</span>
                 </div>
             </div>
         </div>
 
         <div class="col-md-8">
-            <div class="card mb-4">
-                <div class="card-header bg-white py-3 border-0">
-                    <h5 class="mb-0 fw-bold">我的技能路径</h5>
-                </div>
-                <div class="card-body pt-0">
-                    {% if skill_stats %}
-                        {% for stat in skill_stats %}
-                        <div class="mb-4" style="--theme-color: {{ stat.rank_color }}; --progress-width: {{ stat.percent }}%;">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <div>
-                                    <span class="fw-bold"># {{ stat.name }}</span>
-                                    <span class="rank-badge ms-2">
-                                        {{ stat.rank }}
-                                    </span>
-                                </div>
-                                <span class="text-muted" style="font-size: 0.75rem;">累计达成 {{ stat.total_count }} 个目标</span>
+            <div class="card p-4">
+                <h5 class="fw-bold mb-4">我的技能路径</h5>
+                {% if skill_stats %}
+                    {% for stat in skill_stats %}
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <span class="fw-bold"># {{ stat.name }}</span>
+                                <span class="ms-2 px-2 py-1 rounded-pill small fw-bold dynamic-text-color" 
+                                      style="background: #f1f3f5; font-size: 0.7rem;"
+                                      data-color="{{ stat.rank_color }}">
+                                    {{ stat.rank }}
+                                </span>
                             </div>
-                            
-                            <div class="progress" style="height: 10px; background-color: #eee;">
-                                <div class="progress-bar rounded-pill dynamic-progress-bar" role="progressbar">
-                                </div>
+                            <span class="text-muted small">累计达成 {{ stat.total_count }} 目标 </span>
+                        </div>
+                        <div class="progress" style="height: 10px; background-color: #eee; border-radius: 20px;">
+                            <div class="progress-bar dynamic-progress-bar" 
+                                 data-width="{{ stat.percent }}%" 
+                                 data-color="{{ stat.rank_color }}">
                             </div>
                         </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="text-center py-5">
-                            <i class="fas fa-seedling text-light fa-3x mb-3"></i>
-                            <p class="text-muted small">尚未开启任何路径。完成带有标签的目标即可开启进化！</p>
-                        </div>
-                    {% endif %}
-                </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-seedling text-muted fa-3x mb-3 opacity-25"></i>
+                        <p class="text-muted small">完成任务并归档开启进化路径！ [cite: 110, 120]</p>
+                    </div>
+                {% endif %}
             </div>
 
-            <div class="card">
-                <div class="card-header bg-white py-3 border-0">
-                    <h5 class="mb-0 fw-bold text-primary">设置资料</h5>
-                </div>
-                <div class="card-body pt-0">
-                    <form method="post" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label small fw-bold text-secondary">昵称</label>
-                                {{ form.nickname }}
+            <div class="card p-4">
+                <h5 class="fw-bold mb-4 text-primary">设置个人资料</h5>
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="small fw-bold text-secondary mb-1">昵称</label>
+                            <input type="text" name="nickname" class="notion-input" 
+                                   value="{{ user.nickname|default:user.username }}" placeholder="想让大家怎么称呼你？">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="small fw-bold text-secondary mb-1">初始技能水平</label>
+                            <select name="skill_level" class="notion-input">
+                                <option value="beginner" {% if user.skill_level == 'beginner' %}selected{% endif %}>初学者</option>
+                                <option value="intermediate" {% if user.skill_level == 'intermediate' %}selected{% endif %}>进阶者</option>
+                                <option value="expert" {% if user.skill_level == 'expert' %}selected{% endif %}>精通</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="small fw-bold text-secondary mb-2">更新头像 </label>
+                            <div class="avatar-upload-box">
+                                {{ form.avatar }}
+                                <div class="small text-muted mt-2" style="font-size: 0.75rem;">
+                                    支持图片上传，建议使用正方形比例图片
+                                </div>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label small fw-bold text-secondary">称号等级</label>
-                                {{ form.skill_level }}
-                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">头像更新</label>
-                            <div class="py-1">{{ form.avatar }}</div>
+
+                        <div class="col-12">
+                            <label class="small fw-bold text-secondary mb-1">个人介绍</label>
+                            <textarea name="bio" class="notion-input" rows="4" 
+                                      placeholder="介绍一下你自己吧...">{{ user.bio|default:'' }}</textarea>
                         </div>
-                        <div class="mb-4">
-                            <label class="form-label small fw-bold text-secondary">个人介绍</label>
-                            {{ form.bio }}
+
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-primary px-5 py-2 fw-bold" 
+                                    style="border-radius: 12px; background: var(--notion-blue); border: none;">
+                                保存更改
+                            </button>
                         </div>
-                        <div class="text-end">
-                            <button type="submit" class="btn btn-primary px-5 py-2 fw-bold shadow-sm">保存并同步</button>
-                        </div>
-                    </form>
-                </div>
+                    </div>
+                </form>
             </div>
-        </div>
-    </div>
+        </div> 
+    </div> 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 渲染进度条与颜色，绕过编辑器语法检查 [cite: 149]
+        document.querySelectorAll('.dynamic-progress-bar').forEach(bar => {
+            const width = bar.getAttribute('data-width');
+            const color = bar.getAttribute('data-color');
+            setTimeout(() => {
+                bar.style.width = width;
+                bar.style.backgroundColor = color;
+            }, 100);
+        });
+        document.querySelectorAll('.dynamic-text-color').forEach(el => {
+            el.style.color = el.getAttribute('data-color');
+        });
+    });
+</script>
 </body>
 </html>
