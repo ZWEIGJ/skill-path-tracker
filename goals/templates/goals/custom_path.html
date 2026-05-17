@@ -9,54 +9,51 @@
     <style>
         body { background-color: #fcfbfc; color: #37352f; overflow: hidden; }
         .avatar-nav { width: 28px; height: 28px; object-fit: cover; border-radius: 50%; }
-        
         .workspace-wrapper { display: flex; height: calc(100vh - 53px); width: 100vw; }
         
         /* 左侧货架 */
         .sidebar-pool { 
-            width: 320px; background: #f7f6f3; border-right: 1px solid #edf0f2; 
+            width: 340px; background: #f7f6f3; border-right: 1px solid #edf0f2; 
             padding: 24px 16px; display: flex; flex-direction: column; overflow-y: auto;
         }
         .pool-card {
             background: #ffffff; border: 1px solid #e9e8e4; border-radius: 10px;
-            padding: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s ease;
+            padding: 14px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s ease;
         }
         .pool-card:hover { transform: translateY(-2px); border-color: #5297ff; box-shadow: 0 4px 12px rgba(82,151,255,0.1); }
 
-        /* 右侧画布 */
+        /* 右侧画布：支持垂直滚动查看多条路径，水平滚动查看长路径 */
         .canvas-area { 
-            flex: 1; padding: 60px 40px; overflow-x: auto; overflow-y: hidden;
-            display: flex; align-items: center; 
+            flex: 1; padding: 40px; overflow-y: auto; overflow-x: auto;
             background-image: radial-gradient(#e1e1e1 1px, transparent 0);
             background-size: 24px 24px; 
         }
         
+        /* 泳道布局 (Lane) */
+        .path-lane { margin-bottom: 50px; background: rgba(255,255,255,0.6); padding: 24px; border-radius: 16px; border: 1px dashed #e0e0e0; min-width: max-content; }
+        .path-lane-title { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
         .tree-branch-stream { display: flex; align-items: center; }
         
-        /* 🔥 CSS黑科技：自动连接线 */
+        /* 拓扑节点与连线 */
         .topo-node {
             background: #ffffff; border: 2px solid #5297ff; border-radius: 14px;
-            padding: 16px 24px; min-width: 220px; box-shadow: 0 4px 14px rgba(82, 151, 255, 0.06);
+            padding: 16px 20px; min-width: 240px; max-width: 280px; box-shadow: 0 4px 14px rgba(82, 151, 255, 0.06);
             position: relative; margin-left: 45px; transition: all 0.3s;
             animation: nodePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .topo-node:first-child { margin-left: 0; }
         
-        /* 划横线 */
+        /* 纯 CSS 自动连线 */
         .topo-node:not(:first-child)::before {
-            content: ''; position: absolute; left: -47px; top: 50%; margin-top: -1px;
-            width: 45px; height: 2px; background: #5297ff;
+            content: ''; position: absolute; left: -47px; top: 50%; margin-top: -1px; width: 45px; height: 2px; background: #5297ff;
         }
-        /* 画箭头 */
         .topo-node:not(:first-child)::after {
             content: ''; position: absolute; left: -6px; top: 50%; margin-top: -5px;
             border-style: solid; border-width: 5px 0 5px 7px; border-color: transparent transparent transparent #5297ff;
         }
 
-        /* 悬浮操作按钮组 (编辑/删除) */
-        .node-actions {
-            position: absolute; top: -14px; right: -10px; display: none; gap: 6px;
-        }
+        /* 悬浮操作按钮组 */
+        .node-actions { position: absolute; top: -14px; right: -10px; display: none; gap: 6px; }
         .topo-node:hover .node-actions { display: flex; }
         .btn-action-circle {
             width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -65,10 +62,7 @@
         .btn-action-circle:hover { color: #5297ff; border-color: #5297ff; transform: scale(1.1); }
         .btn-action-circle.text-danger:hover { color: #dc3545 !important; border-color: #dc3545; }
 
-        @keyframes nodePop {
-            0% { transform: scale(0.8); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
+        @keyframes nodePop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -88,7 +82,7 @@
     <div class="sidebar-pool">
         <div class="mb-3">
             <h6 class="fw-bold mb-1 text-dark">📦 成果备选池</h6>
-            <p class="text-muted" style="font-size: 11px; margin: 0;">点击卡片将其点亮并挂载至右侧的拓扑进化树。</p>
+            <p class="text-muted" style="font-size: 12px; margin: 0;">点击卡片，将其分配至右侧的指定技能路径中。</p>
         </div>
         <hr class="mt-1 mb-3 opacity-25">
         
@@ -96,11 +90,11 @@
             {% for goal in archive_pool %}
             <div class="pool-card" id="pool-card-{{ goal.id }}" onclick="openModal('add', '{{ goal.id }}', '{{ goal.title }}')">
                 <div class="d-flex justify-content-between align-items-start">
-                    <span class="fw-bold text-dark d-block" style="font-size: 13px;">{{ goal.title }}</span>
-                    <i class="fas fa-plus-circle text-primary ms-2 mt-1"></i>
+                    <span class="fw-bold text-dark d-block" style="font-size: 13px; line-height: 1.4;">{{ goal.title }}</span>
+                    <i class="fas fa-plus-circle text-primary ms-2 mt-1 fs-5"></i>
                 </div>
                 <span style="font-size: 11px; color: #888;" class="d-block mt-2">
-                    <i class="far fa-calendar-alt me-1"></i>归档时间: {{ goal.archived_at|date:"m-d" }}
+                    <i class="far fa-calendar-alt me-1"></i>归档于: {{ goal.archived_at|date:"Y-m-d" }}
                 </span>
             </div>
             {% empty %}
@@ -109,40 +103,70 @@
         </div>
     </div>
     
-    <div class="canvas-area">
-        <div class="tree-branch-stream" id="tree-canvas">
-            {% for node in nodes %}
-                <div class="topo-node" id="node-{{ node.id }}">
-                    <div class="node-actions">
-                        <div class="btn-action-circle" onclick="openModal('edit', '{{ node.id }}', '{{ node.milestone_name }}')" title="重命名"><i class="fas fa-pen"></i></div>
-                        <div class="btn-action-circle text-danger" onclick="deleteNode('{{ node.id }}')" title="撤销节点"><i class="fas fa-times"></i></div>
-                    </div>
-                    
-                    <span class="badge bg-primary bg-opacity-10 text-primary mb-2" style="font-size: 10px; font-weight: normal;">已点亮节点</span>
-                    <h6 class="fw-bold text-dark mb-1" id="node-name-{{ node.id }}" style="font-size: 14px;">{{ node.milestone_name }}</h6>
-                    <div style="font-size: 11px; color: #888;" class="mt-2 border-top pt-2 text-truncate">
-                        <i class="fas fa-link text-secondary me-1"></i>{{ node.linked_goal.title }}
-                    </div>
+    <div class="canvas-area" id="main-canvas-area">
+        {% if not paths_dict %}
+            <div id="global-empty-hint" class="text-center text-muted py-5 mt-5">
+                <i class="fas fa-route fa-3x mb-3 opacity-25"></i>
+                <p>画布空空如也，从左侧点击成果创建你的第一条路径吧。</p>
+            </div>
+        {% endif %}
+
+        {% for path_name, path_nodes in paths_dict.items %}
+            <div class="path-lane" id="lane-{{ path_name|slugify }}">
+                <div class="path-lane-title">
+                    <span class="badge bg-dark text-white rounded-circle p-2"><i class="fas fa-map-signs"></i></span>
+                    {{ path_name }}
                 </div>
-            {% endfor %}
-        </div>
+                <div class="tree-branch-stream" id="stream-{{ path_name|slugify }}">
+                    {% for node in path_nodes %}
+                        <div class="topo-node" id="node-{{ node.id }}">
+                            <div class="node-actions">
+                                <div class="btn-action-circle" onclick="openModal('edit', '{{ node.id }}', '{{ node.milestone_name }}')" title="重命名节点"><i class="fas fa-pen"></i></div>
+                                <div class="btn-action-circle text-danger" onclick="deleteNode('{{ node.id }}', '{{ path_name|slugify }}')" title="移出路径"><i class="fas fa-times"></i></div>
+                            </div>
+                            <span class="badge bg-primary bg-opacity-10 text-primary mb-2" style="font-size: 10px; font-weight: normal;">已点亮</span>
+                            <h6 class="fw-bold text-dark mb-1" id="node-name-{{ node.id }}" style="font-size: 14px;">{{ node.milestone_name }}</h6>
+                            <div style="font-size: 11px; color: #888;" class="mt-2 border-top pt-2 text-truncate">
+                                <i class="fas fa-link text-secondary me-1"></i>{{ node.linked_goal.title }}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
     </div>
 </div>
 
 <div class="modal fade" id="nodeConfigModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
             <div class="modal-header border-bottom-0 pb-0">
-                <h6 class="modal-title fw-bold text-dark" id="modalTitle">配置里程碑</h6>
+                <h5 class="modal-title fw-bold text-dark" id="modalTitle">挂载至路径</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body py-4">
-                <input type="hidden" id="modalAction"> <input type="hidden" id="modalTargetId"> <label class="form-label text-muted" style="font-size: 12px;">节点显示名称</label>
-                <input type="text" class="form-control bg-light border-0" id="nodeNameInput" placeholder="输入名称..." autocomplete="off">
+                <input type="hidden" id="modalAction">
+                <input type="hidden" id="modalTargetId">
+                
+                <div class="mb-4" id="pathNameGroup">
+                    <label class="form-label text-muted fw-bold" style="font-size: 13px;">🎯 目标技能路径</label>
+                    <input class="form-control bg-light border-0" list="pathOptions" id="pathNameInput" placeholder="选择已有路径，或直接输入新路径名称..." autocomplete="off">
+                    <datalist id="pathOptions">
+                        {% for p_name in existing_paths %}
+                            <option value="{{ p_name }}">
+                        {% endfor %}
+                    </datalist>
+                    <div class="form-text" style="font-size: 11px;">例如：Python后端架构、底层C语言进阶、英语口语等</div>
+                </div>
+
+                <div>
+                    <label class="form-label text-muted fw-bold" style="font-size: 13px;">🏷️ 画布节点展示名称</label>
+                    <input type="text" class="form-control bg-light border-0" id="nodeNameInput" autocomplete="off">
+                </div>
             </div>
             <div class="modal-footer border-top-0 pt-0">
-                <button type="button" class="btn btn-light btn-sm px-3 rounded-pill" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary btn-sm px-4 rounded-pill fw-bold" onclick="submitModal()">确认保存</button>
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="submitModal()">确认挂载</button>
             </div>
         </div>
     </div>
@@ -155,66 +179,106 @@
     const csrfToken = document.getElementById('csrf-token').value;
     const configModal = new bootstrap.Modal(document.getElementById('nodeConfigModal'));
     
-    // 打开弹窗统一入口
+    // 生成 slugify 字符串的简易前端实现，用于匹配 DOM ID
+    function slugify(text) {
+        return text.toString().toLowerCase().trim().replace(/[\s\W-]+/g, '-');
+    }
+
     function openModal(action, targetId, defaultName) {
         document.getElementById('modalAction').value = action;
         document.getElementById('modalTargetId').value = targetId;
         document.getElementById('nodeNameInput').value = defaultName;
-        document.getElementById('modalTitle').innerText = action === 'add' ? '✨ 添加新节点' : '✏️ 重命名节点';
-        configModal.show();
         
-        // 自动聚焦输入框
-        setTimeout(() => document.getElementById('nodeNameInput').focus(), 400);
+        const pathGroup = document.getElementById('pathNameGroup');
+        if(action === 'add') {
+            document.getElementById('modalTitle').innerText = '✨ 将成果挂载至技能路径';
+            pathGroup.style.display = 'block'; // 添加时必须选路径
+            document.getElementById('pathNameInput').value = ''; // 清空上次记录
+            setTimeout(() => document.getElementById('pathNameInput').focus(), 400);
+        } else {
+            document.getElementById('modalTitle').innerText = '✏️ 重命名当前节点';
+            pathGroup.style.display = 'none'; // 编辑时只改名，不改路径
+            setTimeout(() => document.getElementById('nodeNameInput').focus(), 400);
+        }
+        
+        configModal.show();
     }
 
-    // 提交弹窗表单 (分发给 添加 或 修改)
     function submitModal() {
         const action = document.getElementById('modalAction').value;
         const targetId = document.getElementById('modalTargetId').value;
         const nameInput = document.getElementById('nodeNameInput').value.trim();
+        const pathInput = document.getElementById('pathNameInput').value.trim();
         
-        if (!nameInput) return alert('名称不能为空');
+        if (action === 'add' && !pathInput) return alert('必须指定目标技能路径！');
         
         let formData = new FormData();
         formData.append('milestone_name', nameInput);
 
         if (action === 'add') {
-            // 新增逻辑
             formData.append('goal_id', targetId);
+            formData.append('path_name', pathInput);
+            
             fetch('/archive/custom-path/', {
                 method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }, body: formData
             }).then(res => res.json()).then(data => {
                 if(data.status === 'success') {
-                    document.getElementById(`pool-card-${targetId}`).remove(); // 移除货架卡片
+                    // 1. 移除左侧卡片，隐藏空提示
+                    document.getElementById(`pool-card-${targetId}`).remove();
+                    const globalEmpty = document.getElementById('global-empty-hint');
+                    if(globalEmpty) globalEmpty.remove();
                     
-                    // 构建右侧新节点DOM
-                    const canvas = document.getElementById('tree-canvas');
+                    // 2. 核心逻辑：找泳道。如果没有，就当场画一条新泳道！
+                    const laneSlug = slugify(data.path_name);
+                    let laneDom = document.getElementById(`lane-${laneSlug}`);
+                    let streamDom = document.getElementById(`stream-${laneSlug}`);
+                    
+                    if (!laneDom) {
+                        const canvasArea = document.getElementById('main-canvas-area');
+                        laneDom = document.createElement('div');
+                        laneDom.className = 'path-lane';
+                        laneDom.id = `lane-${laneSlug}`;
+                        laneDom.innerHTML = `
+                            <div class="path-lane-title">
+                                <span class="badge bg-dark text-white rounded-circle p-2"><i class="fas fa-map-signs"></i></span>
+                                ${data.path_name}
+                            </div>
+                            <div class="tree-branch-stream" id="stream-${laneSlug}"></div>
+                        `;
+                        canvasArea.appendChild(laneDom);
+                        streamDom = document.getElementById(`stream-${laneSlug}`);
+                        
+                        // 同时动态把新路径加到 datalist 里，方便下次下拉
+                        const datalist = document.getElementById('pathOptions');
+                        if(![...datalist.options].some(opt => opt.value === data.path_name)) {
+                            datalist.innerHTML += `<option value="${data.path_name}">`;
+                        }
+                    }
+                    
+                    // 3. 把节点塞进这条泳道
                     const newNode = document.createElement('div');
                     newNode.className = 'topo-node';
                     newNode.id = `node-${data.node_id}`;
                     newNode.innerHTML = `
                         <div class="node-actions">
                             <div class="btn-action-circle" onclick="openModal('edit', '${data.node_id}', '${data.milestone_name}')" title="重命名"><i class="fas fa-pen"></i></div>
-                            <div class="btn-action-circle text-danger" onclick="deleteNode('${data.node_id}')" title="撤销节点"><i class="fas fa-times"></i></div>
+                            <div class="btn-action-circle text-danger" onclick="deleteNode('${data.node_id}', '${laneSlug}')" title="移出路径"><i class="fas fa-times"></i></div>
                         </div>
-                        <span class="badge bg-primary bg-opacity-10 text-primary mb-2" style="font-size: 10px; font-weight: normal;">已点亮节点</span>
+                        <span class="badge bg-primary bg-opacity-10 text-primary mb-2" style="font-size: 10px; font-weight: normal;">已点亮</span>
                         <h6 class="fw-bold text-dark mb-1" id="node-name-${data.node_id}" style="font-size: 14px;">${data.milestone_name}</h6>
                         <div style="font-size: 11px; color: #888;" class="mt-2 border-top pt-2 text-truncate">
                             <i class="fas fa-link text-secondary me-1"></i>${data.goal_title}
                         </div>
                     `;
-                    canvas.appendChild(newNode);
-                    document.querySelector('.canvas-area').scrollLeft = canvas.scrollWidth;
+                    streamDom.appendChild(newNode);
                 }
             });
         } else if (action === 'edit') {
-            // 修改名字逻辑
             fetch(`/archive/custom-path/node/${targetId}/edit/`, {
                 method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }, body: formData
             }).then(res => res.json()).then(data => {
                 if(data.status === 'success') {
                     document.getElementById(`node-name-${targetId}`).innerText = data.new_name;
-                    // 更新按钮的 onclick 事件，确保下次打开依然是最新名字
                     document.querySelector(`#node-${targetId} .fa-pen`).parentElement.setAttribute('onclick', `openModal('edit', '${targetId}', '${data.new_name}')`);
                 }
             });
@@ -222,21 +286,23 @@
         configModal.hide();
     }
 
-    // 撤销/删除节点
-    function deleteNode(nodeId) {
-        if(!confirm('确定要撤销这个节点吗？归档成果将被退回左侧备选池。')) return;
+    function deleteNode(nodeId, laneSlug) {
+        if(!confirm('确定将此成果移出该路径吗？它将退回左侧备选池。')) return;
         
         fetch(`/archive/custom-path/node/${nodeId}/delete/`, {
             method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
         }).then(res => res.json()).then(data => {
             if(data.status === 'success') {
-                // 1. 移除右侧画布中的节点DOM (CSS会自动断开并合并前后的连接线)
                 document.getElementById(`node-${nodeId}`).remove();
                 
-                // 2. 将成果退回左侧货架
+                // 智能清理空泳道：如果这条路径下被删得一个节点都不剩了，把整个泳道也删掉
+                const streamDom = document.getElementById(`stream-${laneSlug}`);
+                if(streamDom && streamDom.children.length === 0) {
+                    document.getElementById(`lane-${laneSlug}`).remove();
+                }
+                
                 if(data.restored_goal) {
                     const poolList = document.getElementById('pool-list');
-                    // 清理空提示
                     const emptyHint = document.getElementById('empty-hint');
                     if (emptyHint) emptyHint.remove();
 
@@ -246,14 +312,13 @@
                     newCard.setAttribute('onclick', `openModal('add', '${data.restored_goal.id}', '${data.restored_goal.title}')`);
                     newCard.innerHTML = `
                         <div class="d-flex justify-content-between align-items-start">
-                            <span class="fw-bold text-dark d-block" style="font-size: 13px;">${data.restored_goal.title}</span>
-                            <i class="fas fa-plus-circle text-primary ms-2 mt-1"></i>
+                            <span class="fw-bold text-dark d-block" style="font-size: 13px; line-height: 1.4;">${data.restored_goal.title}</span>
+                            <i class="fas fa-plus-circle text-primary ms-2 mt-1 fs-5"></i>
                         </div>
                         <span style="font-size: 11px; color: #888;" class="d-block mt-2">
-                            <i class="far fa-calendar-alt me-1"></i>归档时间: ${data.restored_goal.archived_at}
+                            <i class="far fa-calendar-alt me-1"></i>归档于: ${data.restored_goal.archived_at}
                         </span>
                     `;
-                    // 插到最前面
                     poolList.insertBefore(newCard, poolList.firstChild);
                 }
             }

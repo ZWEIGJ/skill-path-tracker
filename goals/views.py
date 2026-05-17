@@ -264,19 +264,22 @@ def goal_restore_ajax(request, pk):
     goal.save()
     return JsonResponse({'status': 'success'})
 
-# --- 4. 自拟定路径画板 (全异步重构版) ---
+# --- 4. 自拟定路径画板 (真·多泳道重构版) ---
 
 @login_required
 def custom_path_board(request):
-    """自定义路径规划画板 (支持异步非阻塞对齐)"""
+    """自定义路径规划画板 (支持异步非阻塞对齐与多路径分组)"""
     user = request.user
     
     if request.method == "POST":
-        # 接收前端点击卡片后发来的 AJAX 请求
-        milestone_name = request.POST.get("milestone_name", "").strip()
+        # 接收前端 AJAX 发来的归档挂载请求
+        path_name = request.POST.get("path_name", "").strip()
         goal_id = request.POST.get("goal_id")
-        path_name = request.POST.get("path_name", "Python高阶工程路径")
+        milestone_name = request.POST.get("milestone_name", "").strip()
         
+        if not path_name:
+            path_name = "未分类技能路径" # 兜底逻辑
+            
         linked_goal = None
         goal_title = ""
         if goal_id:
@@ -291,7 +294,7 @@ def custom_path_board(request):
         elif not milestone_name:
             milestone_name = "未命名节点"
             
-        # 写入数据库，连线挂载
+        # 写入数据库，挂载到指定的 path_name 下
         node = CustomPathNode.objects.create(
             user=user,
             path_name=path_name,
@@ -300,17 +303,27 @@ def custom_path_board(request):
             order_index=CustomPathNode.objects.filter(user=user, path_name=path_name).count() + 1
         )
         
-        # 返回 JSON 数据，供前端立刻渲染到右侧画布
+        # 返回 JSON 数据，供前端立刻渲染到右侧画布指定的泳道中
         return JsonResponse({
             'status': 'success',
             'node_id': node.id,
+            'path_name': node.path_name,
             'milestone_name': node.milestone_name,
             'goal_title': goal_title,
             'counter': CustomPathNode.objects.filter(user=user, path_name=path_name).count()
         })
 
-    # GET 请求：常规渲染页面
-    nodes = CustomPathNode.objects.filter(user=user)
+    # GET 请求：获取当前用户的所有节点，并在 Python 内存中按 path_name 分组
+    nodes = CustomPathNode.objects.filter(user=user).order_by('path_name', 'order_index')
+    
+    paths_dict = {}
+    for node in nodes:
+        if node.path_name not in paths_dict:
+            paths_dict[node.path_name] = []
+        paths_dict[node.path_name].append(node)
+        
+    # 提取所有已存在的路径名称，供前端弹窗中的 <datalist> 下拉提示使用
+    existing_paths = list(paths_dict.keys())
     
     # 提取已被绑定的归档目标ID，防止已被挂载的成果重复出现在左侧货架里
     already_linked_ids = nodes.values_list('linked_goal_id', flat=True)
@@ -319,9 +332,11 @@ def custom_path_board(request):
     archive_pool = LearningGoal.objects.filter(user=user, is_archived=True).exclude(id__in=already_linked_ids)
     
     return render(request, 'goals/custom_path.html', {
-        'nodes': nodes,
+        'paths_dict': paths_dict,
+        'existing_paths': existing_paths,
         'archive_pool': archive_pool
     })
+
 # --- 追加：节点修改与撤销接口 ---
 
 @login_required
@@ -348,7 +363,8 @@ def delete_path_node_ajax(request, node_id):
         goal_info = {
             'id': node.linked_goal.id,
             'title': node.linked_goal.title,
-            'archived_at': node.linked_goal.archived_at.strftime('%m-%d') if node.linked_goal.archived_at else "未知"
+            # 格式化日期以匹配左侧卡片原有的 Y-m-d 格式
+            'archived_at': node.linked_goal.archived_at.strftime('%Y-%m-%d') if node.linked_goal.archived_at else "未知"
         }
     
     node.delete()
