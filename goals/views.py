@@ -12,8 +12,8 @@ from django.db.models import Case, When, IntegerField, Q, BooleanField, F, Count
 from django.utils import timezone
 from datetime import timedelta
 
-# 导入正确的模型和表单
-from .models import LearningGoal, SubTask, Tag 
+# 🌟 包含 CustomPathNode
+from .models import LearningGoal, SubTask, Tag, CustomPathNode
 from .forms import LearningGoalForm
 
 # --- 辅助工具函数 ---
@@ -263,3 +263,93 @@ def goal_restore_ajax(request, pk):
     goal.archived_at = None # 恢复时清除归档时间戳
     goal.save()
     return JsonResponse({'status': 'success'})
+
+# --- 4. 自拟定路径画板 (全异步重构版) ---
+
+@login_required
+def custom_path_board(request):
+    """自定义路径规划画板 (支持异步非阻塞对齐)"""
+    user = request.user
+    
+    if request.method == "POST":
+        # 接收前端点击卡片后发来的 AJAX 请求
+        milestone_name = request.POST.get("milestone_name", "").strip()
+        goal_id = request.POST.get("goal_id")
+        path_name = request.POST.get("path_name", "Python高阶工程路径")
+        
+        linked_goal = None
+        goal_title = ""
+        if goal_id:
+            # 安全检查：确保只能选择当前用户自己且已经归档的目标
+            linked_goal = LearningGoal.objects.filter(id=goal_id, user=user, is_archived=True).first()
+            if linked_goal:
+                goal_title = linked_goal.title
+        
+        # 如果用户弹窗没填名字，默认直接使用归档目标的标题
+        if not milestone_name and linked_goal:
+            milestone_name = linked_goal.title
+        elif not milestone_name:
+            milestone_name = "未命名节点"
+            
+        # 写入数据库，连线挂载
+        node = CustomPathNode.objects.create(
+            user=user,
+            path_name=path_name,
+            milestone_name=milestone_name,
+            linked_goal=linked_goal,
+            order_index=CustomPathNode.objects.filter(user=user, path_name=path_name).count() + 1
+        )
+        
+        # 返回 JSON 数据，供前端立刻渲染到右侧画布
+        return JsonResponse({
+            'status': 'success',
+            'node_id': node.id,
+            'milestone_name': node.milestone_name,
+            'goal_title': goal_title,
+            'counter': CustomPathNode.objects.filter(user=user, path_name=path_name).count()
+        })
+
+    # GET 请求：常规渲染页面
+    nodes = CustomPathNode.objects.filter(user=user)
+    
+    # 提取已被绑定的归档目标ID，防止已被挂载的成果重复出现在左侧货架里
+    already_linked_ids = nodes.values_list('linked_goal_id', flat=True)
+    
+    # 左侧备选池：获取该用户所有已经归档、且还没被挂载到节点上的目标
+    archive_pool = LearningGoal.objects.filter(user=user, is_archived=True).exclude(id__in=already_linked_ids)
+    
+    return render(request, 'goals/custom_path.html', {
+        'nodes': nodes,
+        'archive_pool': archive_pool
+    })
+# --- 追加：节点修改与撤销接口 ---
+
+@login_required
+@require_POST
+def edit_path_node_ajax(request, node_id):
+    """修改自拟定节点的名称"""
+    node = get_object_or_404(CustomPathNode, id=node_id, user=request.user)
+    new_name = request.POST.get('milestone_name', '').strip()
+    if new_name:
+        node.milestone_name = new_name
+        node.save(update_fields=['milestone_name'])
+        return JsonResponse({'status': 'success', 'new_name': new_name})
+    return JsonResponse({'status': 'error', 'msg': '名称不能为空'})
+
+@login_required
+@require_POST
+def delete_path_node_ajax(request, node_id):
+    """撤销(删除)节点，并将成果退回左侧货架"""
+    node = get_object_or_404(CustomPathNode, id=node_id, user=request.user)
+    
+    # 提取被解绑的成果信息，准备让前端把它重新渲染回左侧货架
+    goal_info = None
+    if node.linked_goal:
+        goal_info = {
+            'id': node.linked_goal.id,
+            'title': node.linked_goal.title,
+            'archived_at': node.linked_goal.archived_at.strftime('%m-%d') if node.linked_goal.archived_at else "未知"
+        }
+    
+    node.delete()
+    return JsonResponse({'status': 'success', 'restored_goal': goal_info})

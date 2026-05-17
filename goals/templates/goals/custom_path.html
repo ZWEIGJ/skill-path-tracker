@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-hans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自拟定路径图谱 - SkillPath</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #fcfbfc; color: #37352f; overflow: hidden; }
+        .avatar-nav { width: 28px; height: 28px; object-fit: cover; border-radius: 50%; }
+        
+        .workspace-wrapper { display: flex; height: calc(100vh - 53px); width: 100vw; }
+        
+        /* 左侧货架 */
+        .sidebar-pool { 
+            width: 320px; background: #f7f6f3; border-right: 1px solid #edf0f2; 
+            padding: 24px 16px; display: flex; flex-direction: column; overflow-y: auto;
+        }
+        .pool-card {
+            background: #ffffff; border: 1px solid #e9e8e4; border-radius: 10px;
+            padding: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s ease;
+        }
+        .pool-card:hover { transform: translateY(-2px); border-color: #5297ff; box-shadow: 0 4px 12px rgba(82,151,255,0.1); }
+
+        /* 右侧画布 */
+        .canvas-area { 
+            flex: 1; padding: 60px 40px; overflow-x: auto; overflow-y: hidden;
+            display: flex; align-items: center; 
+            background-image: radial-gradient(#e1e1e1 1px, transparent 0);
+            background-size: 24px 24px; 
+        }
+        
+        .tree-branch-stream { display: flex; align-items: center; }
+        
+        /* 🔥 CSS黑科技：自动连接线 */
+        .topo-node {
+            background: #ffffff; border: 2px solid #5297ff; border-radius: 14px;
+            padding: 16px 24px; min-width: 220px; box-shadow: 0 4px 14px rgba(82, 151, 255, 0.06);
+            position: relative; margin-left: 45px; transition: all 0.3s;
+            animation: nodePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .topo-node:first-child { margin-left: 0; }
+        
+        /* 划横线 */
+        .topo-node:not(:first-child)::before {
+            content: ''; position: absolute; left: -47px; top: 50%; margin-top: -1px;
+            width: 45px; height: 2px; background: #5297ff;
+        }
+        /* 画箭头 */
+        .topo-node:not(:first-child)::after {
+            content: ''; position: absolute; left: -6px; top: 50%; margin-top: -5px;
+            border-style: solid; border-width: 5px 0 5px 7px; border-color: transparent transparent transparent #5297ff;
+        }
+
+        /* 悬浮操作按钮组 (编辑/删除) */
+        .node-actions {
+            position: absolute; top: -14px; right: -10px; display: none; gap: 6px;
+        }
+        .topo-node:hover .node-actions { display: flex; }
+        .btn-action-circle {
+            width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; border: 1px solid #eee; color: #666; font-size: 12px; transition: 0.2s;
+        }
+        .btn-action-circle:hover { color: #5297ff; border-color: #5297ff; transform: scale(1.1); }
+        .btn-action-circle.text-danger:hover { color: #dc3545 !important; border-color: #dc3545; }
+
+        @keyframes nodePop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold text-dark" href="{% url 'goal_list' %}">🗺️ SkillPath Canvas</a>
+        <div class="ms-auto d-flex align-items-center">
+            <a href="{% url 'archived_goals' %}" class="btn btn-light btn-sm rounded-pill px-3 border border-light-subtle me-3">
+                <i class="fas fa-arrow-left me-1"></i>退出画布
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="workspace-wrapper">
+    <div class="sidebar-pool">
+        <div class="mb-3">
+            <h6 class="fw-bold mb-1 text-dark">📦 成果备选池</h6>
+            <p class="text-muted" style="font-size: 11px; margin: 0;">点击卡片将其点亮并挂载至右侧的拓扑进化树。</p>
+        </div>
+        <hr class="mt-1 mb-3 opacity-25">
+        
+        <div id="pool-list">
+            {% for goal in archive_pool %}
+            <div class="pool-card" id="pool-card-{{ goal.id }}" onclick="openModal('add', '{{ goal.id }}', '{{ goal.title }}')">
+                <div class="d-flex justify-content-between align-items-start">
+                    <span class="fw-bold text-dark d-block" style="font-size: 13px;">{{ goal.title }}</span>
+                    <i class="fas fa-plus-circle text-primary ms-2 mt-1"></i>
+                </div>
+                <span style="font-size: 11px; color: #888;" class="d-block mt-2">
+                    <i class="far fa-calendar-alt me-1"></i>归档时间: {{ goal.archived_at|date:"m-d" }}
+                </span>
+            </div>
+            {% empty %}
+            <div id="empty-hint" class="text-center text-muted py-4 small font-italic">暂无空闲的归档成果</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="canvas-area">
+        <div class="tree-branch-stream" id="tree-canvas">
+            {% for node in nodes %}
+                <div class="topo-node" id="node-{{ node.id }}">
+                    <div class="node-actions">
+                        <div class="btn-action-circle" onclick="openModal('edit', '{{ node.id }}', '{{ node.milestone_name }}')" title="重命名"><i class="fas fa-pen"></i></div>
+                        <div class="btn-action-circle text-danger" onclick="deleteNode('{{ node.id }}')" title="撤销节点"><i class="fas fa-times"></i></div>
+                    </div>
+                    
+                    <span class="badge bg-primary bg-opacity-10 text-primary mb-2" style="font-size: 10px; font-weight: normal;">已点亮节点</span>
+                    <h6 class="fw-bold text-dark mb-1" id="node-name-{{ node.id }}" style="font-size: 14px;">{{ node.milestone_name }}</h6>
+                    <div style="font-size: 11px; color: #888;" class="mt-2 border-top pt-2 text-truncate">
+                        <i class="fas fa-link text-secondary me-1"></i>{{ node.linked_goal.title }}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="nodeConfigModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h6 class="modal-title fw-bold text-dark" id="modalTitle">配置里程碑</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-4">
+                <input type="hidden" id="modalAction"> <input type="hidden" id="modalTargetId"> <label class="form-label text-muted" style="font-size: 12px;">节点显示名称</label>
+                <input type="text" class="form-control bg-light border-0" id="nodeNameInput" placeholder="输入名称..." autocomplete="off">
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light btn-sm px-3 rounded-pill" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary btn-sm px-4 rounded-pill fw-bold" onclick="submitModal()">确认保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const csrfToken = document.getElementById('csrf-token').value;
+    const configModal = new bootstrap.Modal(document.getElementById('nodeConfigModal'));
+    
+    // 打开弹窗统一入口
+    function openModal(action, targetId, defaultName) {
+        document.getElementById('modalAction').value = action;
+        document.getElementById('modalTargetId').value = targetId;
+        document.getElementById('nodeNameInput').value = defaultName;
+        document.getElementById('modalTitle').innerText = action === 'add' ? '✨ 添加新节点' : '✏️ 重命名节点';
+        configModal.show();
+        
+        // 自动聚焦输入框
+        setTimeout(() => document.getElementById('nodeNameInput').focus(), 400);
+    }
+
+    // 提交弹窗表单 (分发给 添加 或 修改)
+    function submitModal() {
+        const action = document.getElementById('modalAction').value;
+        const targetId = document.getElementById('modalTargetId').value;
+        const nameInput = document.getElementById('nodeNameInput').value.trim();
+        
+        if (!nameInput) return alert('名称不能为空');
+        
+        let formData = new FormData();
+        formData.append('milestone_name', nameInput);
+
+        if (action === 'add') {
+            // 新增逻辑
+            formData.append('goal_id', targetId);
+            fetch('/archive/custom-path/', {
+                method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }, body: formData
+            }).then(res => res.json()).then(data => {
+                if(data.status === 'success') {
+                    document.getElementById(`pool-card-${targetId}`).remove(); // 移除货架卡片
+                    
+                    // 构建右侧新节点DOM
+                    const canvas = document.getElementById('tree-canvas');
+                    const newNode = document.createElement('div');
+                    newNode.className = 'topo-node';
+                    newNode.id = `node-${data.node_id}`;
+                    newNode.innerHTML = `
+                        <div class="node-actions">
+                            <div class="btn-action-circle" onclick="openModal('edit', '${data.node_id}', '${data.milestone_name}')" title="重命名"><i class="fas fa-pen"></i></div>
+                            <div class="btn-action-circle text-danger" onclick="deleteNode('${data.node_id}')" title="撤销节点"><i class="fas fa-times"></i></div>
+                        </div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary mb-2" style="font-size: 10px; font-weight: normal;">已点亮节点</span>
+                        <h6 class="fw-bold text-dark mb-1" id="node-name-${data.node_id}" style="font-size: 14px;">${data.milestone_name}</h6>
+                        <div style="font-size: 11px; color: #888;" class="mt-2 border-top pt-2 text-truncate">
+                            <i class="fas fa-link text-secondary me-1"></i>${data.goal_title}
+                        </div>
+                    `;
+                    canvas.appendChild(newNode);
+                    document.querySelector('.canvas-area').scrollLeft = canvas.scrollWidth;
+                }
+            });
+        } else if (action === 'edit') {
+            // 修改名字逻辑
+            fetch(`/archive/custom-path/node/${targetId}/edit/`, {
+                method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }, body: formData
+            }).then(res => res.json()).then(data => {
+                if(data.status === 'success') {
+                    document.getElementById(`node-name-${targetId}`).innerText = data.new_name;
+                    // 更新按钮的 onclick 事件，确保下次打开依然是最新名字
+                    document.querySelector(`#node-${targetId} .fa-pen`).parentElement.setAttribute('onclick', `openModal('edit', '${targetId}', '${data.new_name}')`);
+                }
+            });
+        }
+        configModal.hide();
+    }
+
+    // 撤销/删除节点
+    function deleteNode(nodeId) {
+        if(!confirm('确定要撤销这个节点吗？归档成果将被退回左侧备选池。')) return;
+        
+        fetch(`/archive/custom-path/node/${nodeId}/delete/`, {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(res => res.json()).then(data => {
+            if(data.status === 'success') {
+                // 1. 移除右侧画布中的节点DOM (CSS会自动断开并合并前后的连接线)
+                document.getElementById(`node-${nodeId}`).remove();
+                
+                // 2. 将成果退回左侧货架
+                if(data.restored_goal) {
+                    const poolList = document.getElementById('pool-list');
+                    // 清理空提示
+                    const emptyHint = document.getElementById('empty-hint');
+                    if (emptyHint) emptyHint.remove();
+
+                    const newCard = document.createElement('div');
+                    newCard.className = 'pool-card';
+                    newCard.id = `pool-card-${data.restored_goal.id}`;
+                    newCard.setAttribute('onclick', `openModal('add', '${data.restored_goal.id}', '${data.restored_goal.title}')`);
+                    newCard.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="fw-bold text-dark d-block" style="font-size: 13px;">${data.restored_goal.title}</span>
+                            <i class="fas fa-plus-circle text-primary ms-2 mt-1"></i>
+                        </div>
+                        <span style="font-size: 11px; color: #888;" class="d-block mt-2">
+                            <i class="far fa-calendar-alt me-1"></i>归档时间: ${data.restored_goal.archived_at}
+                        </span>
+                    `;
+                    // 插到最前面
+                    poolList.insertBefore(newCard, poolList.firstChild);
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>

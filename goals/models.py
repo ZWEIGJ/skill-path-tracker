@@ -112,3 +112,29 @@ class SubTask(models.Model):
     class Meta:
         verbose_name = "子任务"
         verbose_name_plural = "子任务"
+
+class CustomPathNode(models.Model):
+    """
+    自拟定路径节点模型：允许用户创建独立的里程碑，并手动挂载已归档的成果。
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name="所属用户")
+    path_name = models.CharField(max_length=100, default="Python高阶工程路径", verbose_name="自定义路径大类")
+    milestone_name = models.CharField(max_length=100, verbose_name="自拟里程碑节点")
+    
+    # 关联已完成并归档的学习目标。采用 SET_NULL 防止目标被删时导致整个路径节点崩坍
+    linked_goal = models.ForeignKey(
+        LearningGoal, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        verbose_name="绑定的归档目标"
+    )
+    order_index = models.IntegerField(default=0, verbose_name="排序权重")
+
+    class Meta:
+        ordering = ['order_index']
+        verbose_name = "自拟定路径节点"
+        verbose_name_plural = "自拟定路径节点"
+
+    def __str__(self):
+        return f"{self.path_name} - {self.milestone_name}"
