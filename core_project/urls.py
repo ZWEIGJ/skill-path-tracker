@@ -31,7 +31,7 @@ urlpatterns = [
     path('goal/archive/<int:pk>/', goal_views.goal_archive_ajax, name='goal_archive_ajax'),
     path('goal/restore/<int:pk>/', goal_views.goal_restore_ajax, name='goal_restore_ajax'),
     
-    # 🌟 自拟定路径画板及节点操作接口 (AJAX)
+    # 自拟定路径画板及节点操作接口 (AJAX)
     path('archive/custom-path/', goal_views.custom_path_board, name='custom_path_board'),
     path('archive/custom-path/node/<int:node_id>/edit/', goal_views.edit_path_node_ajax, name='edit_path_node'),
     path('archive/custom-path/node/<int:node_id>/delete/', goal_views.delete_path_node_ajax, name='delete_path_node'),

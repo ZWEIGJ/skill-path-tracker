@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 2. 渲染环形图 (Doughnut Chart)
+    // 2. 渲染环形图 
     const ctx = document.getElementById('archiveDoughnutChart').getContext('2d');
     const chartLabels = JSON.parse('{{ chart_labels_json|safe }}');
     const chartValues = JSON.parse('{{ chart_values_json|safe }}');

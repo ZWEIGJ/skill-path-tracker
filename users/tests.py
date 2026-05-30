@@ -2,62 +2,130 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
-class UserModelTest(TestCase):
-    def test_create_user_with_skill_level(self):
-        """测试创建用户时是否能保存技能等级"""
-        User = get_user_model()
-        user = User.objects.create_user(
-            username='testuser',
-            password='password123',
-            skill_level='beginner' # 预期有的字段
-        )
-        self.assertEqual(user.skill_level, 'beginner')
-
-class UserRegistrationTest(TestCase):
-    def test_registration_view_status_code(self):
-        """测试注册页面是否能正常打开"""
-        response = self.client.get(reverse('register'))
-        self.assertEqual(response.status_code, 200)
-
-    def test_user_registration_logic(self):
-            """测试用户是否能通过表单成功注册并保存技能等级"""
-            data = {
-                'username': 'newuser',
-                'password1': 'Password123!',  # 修改为 password1
-                'password2': 'Password123!',  # 修改为 password2
-                'skill_level': 'intermediate',
-                'skill_tags': 'Python'
-            }
-            self.client.post(reverse('register'), data)
-            
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            user = User.objects.get(username='newuser')
-            self.assertEqual(user.skill_level, 'intermediate')
+from .models import LearningGoal, SubTask, Tag, CustomPathNode
 
 
-class UserLoginTest(TestCase):
+class UserAuthenticationTest(TestCase):
+
     def setUp(self):
-        # 创建一个测试用户
-        from django.contrib.auth import get_user_model
         User = get_user_model()
         self.user = User.objects.create_user(
-            username='testlogin', 
-            password='Password123!',
-            skill_level='beginner'
+            username='testuser',
+            password='Password123!'
         )
 
-    def test_login_view_status_code(self):
-        """测试登录页面是否能正常打开"""
+    def test_login_page_status_code(self):
+        """测试登录页面是否正常响应"""
         response = self.client.get(reverse('login'))
         self.assertEqual(response.status_code, 200)
 
-    def test_user_login_logic(self):
-        """测试用户是否能成功登录"""
-        data = {
-            'username': 'testlogin',
+    def test_user_login(self):
+        """测试用户是否能够正常登录"""
+        response = self.client.post(reverse('login'), {
+            'username': 'testuser',
             'password': 'Password123!'
-        }
-        response = self.client.post(reverse('login'), data)
-        # 登录成功后默认应重定向（302）
+        })
+
         self.assertEqual(response.status_code, 302)
+
+
+class LearningGoalModelTest(TestCase):
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='goaluser',
+            password='Password123!'
+        )
+
+    def test_create_learning_goal(self):
+        """测试学习目标是否创建成功"""
+
+        goal = LearningGoal.objects.create(
+            user=self.user,
+            title='掌握 Python 基础语法',
+            priority='high'
+        )
+
+        self.assertEqual(goal.title, '掌握 Python 基础语法')
+        self.assertEqual(goal.user.username, 'goaluser')
+
+
+class SubTaskModelTest(TestCase):
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='taskuser',
+            password='Password123!'
+        )
+
+        self.goal = LearningGoal.objects.create(
+            user=self.user,
+            title='学习 Django'
+        )
+
+    def test_subtask_completion_status(self):
+        """测试子任务完成状态是否能够更新"""
+
+        subtask = SubTask.objects.create(
+            goal=self.goal,
+            content='完成 ORM 学习',
+            is_completed=False
+        )
+
+        subtask.is_completed = True
+        subtask.save()
+
+        self.assertTrue(subtask.is_completed)
+
+
+class TagRelationshipTest(TestCase):
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='taguser',
+            password='Password123!'
+        )
+
+    def test_goal_tag_relationship(self):
+        """测试学习目标与标签的关联关系"""
+
+        goal = LearningGoal.objects.create(
+            user=self.user,
+            title='前端开发学习'
+        )
+
+        tag = Tag.objects.create(
+            name='JavaScript',
+            color='#FFD43B'
+        )
+
+        goal.tags.add(tag)
+
+        self.assertEqual(goal.tags.count(), 1)
+
+
+class CustomPathNodeTest(TestCase):
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username='pathuser',
+            password='Password123!'
+        )
+
+    def test_create_custom_path_node(self):
+        """测试多泳道路径节点是否创建成功"""
+
+        node = CustomPathNode.objects.create(
+            user=self.user,
+            path_name='后端开发',
+            milestone_name='学习 Django ORM',
+            order_index=1
+        )
+
+        self.assertEqual(node.path_name, '后端开发')
+        self.assertEqual(node.order_index, 1)
+

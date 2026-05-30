@@ -12,7 +12,7 @@ from django.db.models import Case, When, IntegerField, Q, BooleanField, F, Count
 from django.utils import timezone
 from datetime import timedelta
 
-# 🌟 包含 CustomPathNode
+# 包含 CustomPathNode
 from .models import LearningGoal, SubTask, Tag, CustomPathNode
 from .forms import LearningGoalForm
 
@@ -224,7 +224,7 @@ def archived_goals_view(request):
     """
     已归档列表：展示成就墙与本周突破
     """
-    # 🌟 优化：按归档时间排序，最近归档的排最前
+    #  优化：按归档时间排序，最近归档的排最前
     archived_goals = LearningGoal.objects.filter(
         user=request.user, 
         is_archived=True
@@ -239,7 +239,7 @@ def archived_goals_view(request):
     chart_labels = [tag.name for tag in tag_counts] or ["暂无数据"]
     chart_values = [tag.num_goals for tag in tag_counts] or [0]
 
-    # 🌟 修复“本周突破”逻辑 Bug：
+    # 修复“本周突破”逻辑 Bug：
     # 计算本周（周一凌晨起）内归档的目标数量，而非创建时间
     now = timezone.now()
     start_of_week = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -337,7 +337,7 @@ def custom_path_board(request):
         'archive_pool': archive_pool
     })
 
-# --- 追加：节点修改与撤销接口 ---
+# --- 节点修改与撤销接口 ---
 
 @login_required
 @require_POST
